@@ -80,7 +80,7 @@ const App: React.FC = () => {
     setCanClaim(true);
     
     const shareText = `“${currentQuote.text}”\n- ${currentQuote.author}`;
-    const encodedText = encodeURIComponent(`${shareText}\n\nVia Daily Quote Frame`);
+    const encodedText = encodeURIComponent(`${shareText}\n\nVia CastInspo`);
     const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
 
     // 1. Try Native Share (Best for sharing the actual IMAGE to Warpcast on Mobile)
@@ -92,7 +92,7 @@ const App: React.FC = () => {
         
         const shareData = {
           files: [file],
-          title: 'Quote of the Day',
+          title: 'CastInspo',
           text: shareText,
         };
 
@@ -201,10 +201,10 @@ const App: React.FC = () => {
             <>
               <div className="mt-4 mb-0 text-center z-20">
                 <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-md font-serif">
-                  Quote of the Day
+                  CastInspo
                 </h1>
                 <p className="text-zinc-400 text-xs tracking-wide font-medium">
-                  Daily inspiration for casters
+                  Quote. Share. Earn.
                 </p>
               </div>
               <QuoteCard 

@@ -1,5 +1,5 @@
 {
-  "name": "Daily Quote & Rewards",
-  "description": "A social check-in app featuring daily inspirational quotes powered by Gemini, NFT minting, and reward tracking.",
+  "name": "CastInspo",
+  "description": "Turn daily inspiration into on-chain rewards. Share the quote of the day on Warpcast and claim your daily bonus.",
   "requestFramePermissions": []
 }
