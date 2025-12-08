@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { encodeFunctionData, createPublicClient, http } from 'viem';
+import { encodeFunctionData, createPublicClient, http, parseAbi } from 'viem';
 import { base } from 'viem/chains';
 import Header from './components/Header';
 import QuoteCard from './components/QuoteCard';
@@ -17,30 +17,12 @@ const publicClient = createPublicClient({
   transport: http()
 });
 
-// Using JSON ABI for stricter type inference and to avoid parseAbi issues
-const CONTRACT_ABI = [
-  {
-    type: 'function',
-    name: 'checkInAndClaim',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable'
-  },
-  {
-    type: 'function',
-    name: 'getCurrentDay',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
-    stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'lastClaimDay',
-    inputs: [{ name: '', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
-    stateMutability: 'view'
-  }
-] as const;
+// Using parseAbi for better type inference
+const CONTRACT_ABI = parseAbi([
+  'function checkInAndClaim()',
+  'function getCurrentDay() view returns (uint256)',
+  'function lastClaimDay(address owner) view returns (uint256)'
+]);
 
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -142,21 +124,21 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // Unlock claim logic: If already claimed, tell them and DO NOT unlock the button.
-    if (hasClaimedToday) {
-      console.log("User shared, but has already claimed today.");
-    } else {
-      // Unlock the Claim button immediately upon sharing trigger
+    // Unlock claim logic immediately
+    if (!hasClaimedToday) {
       setCanClaim(true);
     }
+
+    const textToShare = `“${currentQuote.text}”\n- ${currentQuote.author}`;
     
-    // Strict Image Sharing Logic
-    // We only use navigator.share to pop up the native share sheet with the IMAGE.
-    // We do NOT use window.open or sdk.actions.openUrl as fallbacks to avoid new tabs/text-only shares.
+    // Strategy:
+    // 1. Try Native Image Share (Priority)
+    // 2. Fallback to Warpcast Compose URL (Text only)
+
+    let nativeShareSuccess = false;
 
     if (currentQuote.imageUrl && navigator.share && navigator.canShare) {
       try {
-        // 1. Fetch the image blob from the data URL
         const response = await fetch(currentQuote.imageUrl);
         const blob = await response.blob();
         const file = new File([blob], 'quote.png', { type: 'image/png' });
@@ -164,21 +146,28 @@ const App: React.FC = () => {
         const shareData = {
           files: [file],
           title: 'CastInspo',
-          text: `“${currentQuote.text}”\n- ${currentQuote.author}\n\nVia CastInspo`,
+          text: `${textToShare}\n\nVia CastInspo`,
         };
 
-        // 2. Trigger Native Share
         if (navigator.canShare(shareData)) {
           await navigator.share(shareData);
-        } else {
-           alert("Your device does not support sharing images directly.");
+          nativeShareSuccess = true;
         }
       } catch (err) {
-        // User cancelled or share failed
-        console.warn("Share cancelled or failed:", err);
+        console.warn("Native image share failed or cancelled, falling back to composer...", err);
       }
-    } else {
-      alert("Sharing is not supported in this environment.");
+    }
+
+    // If native share didn't run (or failed), open Warpcast composer
+    if (!nativeShareSuccess) {
+       try {
+        const encodedText = encodeURIComponent(`${textToShare}\n\nVia CastInspo`);
+        // Embed the current URL if available or a placeholder
+        const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
+        sdk.actions.openUrl(warpcastUrl);
+      } catch (e) {
+        console.error("Failed to open Warpcast URL", e);
+      }
     }
   };
 
@@ -240,8 +229,7 @@ const App: React.FC = () => {
       
       alert(`Claim submitted successfully! Hash: ${txHash}`);
       
-      // Update status immediately assuming success (optimistic UI), 
-      // or wait a bit. Ideally we wait for receipt, but simpler here:
+      // Update status immediately assuming success (optimistic UI)
       setHasClaimedToday(true);
       setCanClaim(false);
 
