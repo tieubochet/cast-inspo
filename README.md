@@ -1,0 +1,2 @@
+# cast-inspo
+Turn daily inspiration into on-chain rewards. Share the quote of the day on Warpcast and claim your daily bonus.
