@@ -1,0 +1,5 @@
+{
+  "name": "Daily Quote & Rewards",
+  "description": "A social check-in app featuring daily inspirational quotes powered by Gemini, NFT minting, and reward tracking.",
+  "requestFramePermissions": []
+}
