@@ -8,7 +8,7 @@ import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB";
-// Chain ID handling is managed by the connected wallet provider in Frame v2
+const CHAIN_ID = 8453; // Base Mainnet
 
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -127,6 +127,7 @@ const App: React.FC = () => {
     
     try {
       // 1. Encode the transaction data
+      // Verify function name matches contract EXACTLY (case-sensitive)
       const calldata = encodeFunctionData({
         abi: [{
           inputs: [],
@@ -138,8 +139,18 @@ const App: React.FC = () => {
         functionName: "checkinandclaim"
       });
 
-      // 2. Send transaction via Frame SDK Provider
-      // sdk.actions.sendTransaction is deprecated/removed in favor of ethProvider
+      // 2. Switch Chain to Base (8453)
+      try {
+        await sdk.wallet.ethProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2105' }], // 8453 in hex
+        });
+      } catch (switchError) {
+        console.error("Failed to switch chain:", switchError);
+        // Proceeding anyway, as some wallets might handle this automatically or differently
+      }
+
+      // 3. Send transaction via Frame SDK Provider
       const txHash = await sdk.wallet.ethProvider.request({
         method: 'eth_sendTransaction',
         params: [{
@@ -152,14 +163,17 @@ const App: React.FC = () => {
       
       console.log("Transaction sent:", txHash);
       
-      // Ideally, we wait for tx receipt here, but frame SDK just fires and forgets usually
-      // For UX, we disable the button after a successful "sent"
       setCanClaim(false); 
-      alert("Claim submitted successfully!");
+      alert(`Claim submitted successfully! Hash: ${txHash}`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Claim failed:", error);
-      alert("Failed to claim. Please try again.");
+      // Try to show a helpful message
+      if (error.message?.includes('reverted')) {
+         alert("Transaction failed: The contract rejected the claim. You may have already claimed today.");
+      } else {
+         alert("Failed to claim. Please try again.");
+      }
     } finally {
       setIsClaiming(false);
     }
