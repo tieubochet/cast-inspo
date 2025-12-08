@@ -1,15 +1,16 @@
 import React from 'react';
-import { Gift, Loader2 } from 'lucide-react';
+import { Gift, Loader2, Check } from 'lucide-react';
 import { FarcasterUser } from '../types';
 
 interface HeaderProps {
   user: FarcasterUser | null;
   canClaim: boolean;
   isClaiming: boolean;
+  hasClaimedToday: boolean;
   onClaim: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, canClaim, isClaiming, onClaim }) => {
+const Header: React.FC<HeaderProps> = ({ user, canClaim, isClaiming, hasClaimedToday, onClaim }) => {
   // Fallback data if user is not connected (e.g. testing in browser)
   const displayUser = user || {
     username: 'Guest',
@@ -46,17 +47,39 @@ const Header: React.FC<HeaderProps> = ({ user, canClaim, isClaiming, onClaim }) 
         </div>
 
         {/* Right: Claim Button */}
+        {/* Logic: 
+            1. If hasClaimedToday -> Green 'Claimed' (Disabled)
+            2. If isClaiming -> Loading Spinner
+            3. If canClaim -> Gold 'Claim' (Enabled)
+            4. Default -> Gray 'Claim' (Disabled)
+        */}
         <button
           onClick={onClaim}
-          disabled={!canClaim || isClaiming}
+          disabled={!canClaim || isClaiming || hasClaimedToday}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border 
-            ${canClaim 
-              ? 'bg-amber-400/20 text-amber-300 border-amber-400/50 hover:bg-amber-400/30 cursor-pointer shadow-[0_0_15px_rgba(251,191,36,0.3)]' 
-              : 'bg-zinc-700/30 text-zinc-500 border-zinc-700/50 cursor-not-allowed'
+            ${
+              hasClaimedToday
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 cursor-default'
+                : canClaim 
+                  ? 'bg-amber-400/20 text-amber-300 border-amber-400/50 hover:bg-amber-400/30 cursor-pointer shadow-[0_0_15px_rgba(251,191,36,0.3)]' 
+                  : 'bg-zinc-700/30 text-zinc-500 border-zinc-700/50 cursor-not-allowed'
             }`}
         >
-          {isClaiming ? <Loader2 size={14} className="animate-spin" /> : <Gift size={14} />}
-          <span>{canClaim ? (isClaiming ? 'Claiming...' : 'Claim') : 'Claim'}</span>
+          {isClaiming ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : hasClaimedToday ? (
+            <Check size={14} />
+          ) : (
+            <Gift size={14} />
+          )}
+          
+          <span>
+            {isClaiming 
+              ? 'Claiming...' 
+              : hasClaimedToday 
+                ? 'Claimed' 
+                : 'Claim'}
+          </span>
         </button>
       </div>
     </div>

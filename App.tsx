@@ -1,14 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { encodeFunctionData } from 'viem';
+import { encodeFunctionData, createPublicClient, http, parseAbi } from 'viem';
+import { base } from 'viem/chains';
 import Header from './components/Header';
 import QuoteCard from './components/QuoteCard';
 import Footer from './components/Footer';
 import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 
-const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB";
+const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
 const CHAIN_ID = 8453; // Base Mainnet
+
+// Public Client to read contract state without prompting user
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http()
+});
+
+const CONTRACT_ABI = parseAbi([
+  "function checkInAndClaim() external",
+  "function getCurrentDay() public view returns (uint256)",
+  "function lastClaimDay(address) public view returns (uint256)"
+]);
 
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -20,6 +33,37 @@ const App: React.FC = () => {
   // Rewards & Claiming State
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [isClaiming, setIsClaiming] = useState<boolean>(false);
+  const [hasClaimedToday, setHasClaimedToday] = useState<boolean>(false);
+
+  // Check if user has already claimed today
+  const checkClaimStatus = useCallback(async (address: string) => {
+    try {
+      const [currentDay, lastClaim] = await Promise.all([
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: 'getCurrentDay'
+        }),
+        publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: 'lastClaimDay',
+          args: [address as `0x${string}`]
+        })
+      ]);
+
+      console.log(`Current Day: ${currentDay}, Last Claim: ${lastClaim}`);
+
+      if (lastClaim === currentDay) {
+        setHasClaimedToday(true);
+        setCanClaim(false); // Ensure button is disabled if already claimed
+      } else {
+        setHasClaimedToday(false);
+      }
+    } catch (error) {
+      console.error("Failed to check claim status:", error);
+    }
+  }, []);
 
   // Initialize Farcaster SDK and User Context
   useEffect(() => {
@@ -38,13 +82,16 @@ const App: React.FC = () => {
         }
 
         // 2. Get User Wallet Address via Provider
-        // Frame SDK v2 exposes an EIP-1193 provider
         if (sdk.wallet && sdk.wallet.ethProvider) {
            try {
              const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_requestAccounts' }) as string[];
              if (accounts && accounts.length > 0) {
-               setUserAddress(accounts[0]);
-               console.log("Wallet connected:", accounts[0]);
+               const address = accounts[0];
+               setUserAddress(address);
+               console.log("Wallet connected:", address);
+               
+               // Check status immediately upon connection
+               checkClaimStatus(address);
              }
            } catch (walletErr) {
              console.error("Error connecting wallet:", walletErr);
@@ -59,7 +106,7 @@ const App: React.FC = () => {
     };
 
     initSDK();
-  }, []);
+  }, [checkClaimStatus]);
 
   const fetchNewQuote = async () => {
     setLoading(true);
@@ -76,8 +123,15 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // Unlock the Claim button immediately upon sharing trigger
-    setCanClaim(true);
+    // Logic: If already claimed, tell them and DO NOT unlock the button.
+    if (hasClaimedToday) {
+      // You can decide whether to block sharing or just not unlock the button.
+      // Here we let them share but we don't enable the claim button.
+      console.log("User shared, but has already claimed today.");
+    } else {
+      // Unlock the Claim button immediately upon sharing trigger
+      setCanClaim(true);
+    }
     
     const shareText = `“${currentQuote.text}”\n- ${currentQuote.author}`;
     const encodedText = encodeURIComponent(`${shareText}\n\nVia CastInspo`);
@@ -135,19 +189,16 @@ const App: React.FC = () => {
       return;
     }
 
+    if (hasClaimedToday) {
+      return;
+    }
+
     setIsClaiming(true);
     
     try {
       // 1. Encode the transaction data
-      // Function Name must match contract EXACTLY: checkInAndClaim (camelCase)
       const calldata = encodeFunctionData({
-        abi: [{
-          inputs: [],
-          name: "checkInAndClaim", 
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function"
-        }],
+        abi: CONTRACT_ABI,
         functionName: "checkInAndClaim"
       });
 
@@ -161,12 +212,10 @@ const App: React.FC = () => {
           });
         } catch (switchError) {
           console.error("Failed to switch chain:", switchError);
-          // If switch fails, we warn but try to proceed in case the wallet handles it
         }
       }
 
       // 3. Send transaction via Frame SDK Provider
-      // Removed 'value' field to avoid issues with non-payable functions in some wallets
       const txHash = await sdk.wallet.ethProvider.request({
         method: 'eth_sendTransaction',
         params: [{
@@ -178,14 +227,24 @@ const App: React.FC = () => {
       
       console.log("Transaction sent:", txHash);
       
-      setCanClaim(false); 
       alert(`Claim submitted successfully! Hash: ${txHash}`);
+      
+      // Update status immediately assuming success (optimistic UI), 
+      // or wait a bit. Ideally we wait for receipt, but simpler here:
+      setHasClaimedToday(true);
+      setCanClaim(false);
+
+      // Optionally re-verify from chain after a delay
+      setTimeout(() => {
+        if (userAddress) checkClaimStatus(userAddress);
+      }, 5000);
 
     } catch (error: any) {
       console.error("Claim failed:", error);
-      // Try to show a helpful message
       if (error.message?.includes('reverted') || error.code === 3 || error.message?.includes('execution reverted')) {
          alert("Transaction failed: Execution reverted. You may have already claimed today, or the contract is out of funds.");
+         // Re-check status in case we missed it
+         if (userAddress) checkClaimStatus(userAddress);
       } else if (error.code === 4001) {
          alert("Transaction rejected by user.");
       } else {
@@ -224,6 +283,7 @@ const App: React.FC = () => {
           user={user} 
           canClaim={canClaim}
           isClaiming={isClaiming}
+          hasClaimedToday={hasClaimedToday}
           onClaim={handleClaim}
         />
 
