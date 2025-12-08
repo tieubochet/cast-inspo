@@ -117,6 +117,18 @@ const App: React.FC = () => {
     }
   };
 
+  const checkChainId = async () => {
+    if (!sdk.wallet.ethProvider) return false;
+    try {
+      const chainId = await sdk.wallet.ethProvider.request({ method: 'eth_chainId' });
+      // 0x2105 is 8453 (Base)
+      return chainId === '0x2105';
+    } catch (e) {
+      console.error("Error checking chain ID:", e);
+      return false;
+    }
+  };
+
   const handleClaim = async () => {
     if (!userAddress) {
       alert("No wallet connected. Please open in Farcaster.");
@@ -127,37 +139,40 @@ const App: React.FC = () => {
     
     try {
       // 1. Encode the transaction data
-      // Verify function name matches contract EXACTLY (case-sensitive)
+      // Function Name must match contract EXACTLY: checkInAndClaim (camelCase)
       const calldata = encodeFunctionData({
         abi: [{
           inputs: [],
-          name: "checkinandclaim",
+          name: "checkInAndClaim", 
           outputs: [],
           stateMutability: "nonpayable",
           type: "function"
         }],
-        functionName: "checkinandclaim"
+        functionName: "checkInAndClaim"
       });
 
-      // 2. Switch Chain to Base (8453)
-      try {
-        await sdk.wallet.ethProvider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x2105' }], // 8453 in hex
-        });
-      } catch (switchError) {
-        console.error("Failed to switch chain:", switchError);
-        // Proceeding anyway, as some wallets might handle this automatically or differently
+      // 2. Check and Switch Chain to Base (8453)
+      const isBase = await checkChainId();
+      if (!isBase) {
+        try {
+          await sdk.wallet.ethProvider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x2105' }], // 8453 in hex
+          });
+        } catch (switchError) {
+          console.error("Failed to switch chain:", switchError);
+          // If switch fails, we warn but try to proceed in case the wallet handles it
+        }
       }
 
       // 3. Send transaction via Frame SDK Provider
+      // Removed 'value' field to avoid issues with non-payable functions in some wallets
       const txHash = await sdk.wallet.ethProvider.request({
         method: 'eth_sendTransaction',
         params: [{
           to: CONTRACT_ADDRESS,
           from: userAddress,
           data: calldata,
-          value: '0x0' // 0 ETH in hex
         }]
       });
       
@@ -169,10 +184,12 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error("Claim failed:", error);
       // Try to show a helpful message
-      if (error.message?.includes('reverted')) {
-         alert("Transaction failed: The contract rejected the claim. You may have already claimed today.");
+      if (error.message?.includes('reverted') || error.code === 3 || error.message?.includes('execution reverted')) {
+         alert("Transaction failed: Execution reverted. You may have already claimed today, or the contract is out of funds.");
+      } else if (error.code === 4001) {
+         alert("Transaction rejected by user.");
       } else {
-         alert("Failed to claim. Please try again.");
+         alert(`Failed to claim: ${error.message || "Unknown error"}`);
       }
     } finally {
       setIsClaiming(false);
