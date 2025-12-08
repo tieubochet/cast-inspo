@@ -11,5 +11,10 @@
     "subtitle": "Quote. Share. Earn",
     "description": "Turn daily inspiration into on-chain rewards. Share the quote of the day on Warpcast and claim your daily bonus.",
     "primaryCategory": "social"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjI2MDI5OSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGE1NjNDYTRFMGZmMjIzNjMzMkUyRkRmRDkxZkZEOTZlNTk0NzQ5RkYifQ",
+    "payload": "eyJkb21haW4iOiJjYXN0LWluc3BvLnZlcmNlbC5hcHAifQ",
+    "signature": "SU5oQzK2Qdh/Uz1X2MwFBmIOcNB2On+85hBTh+eJQfcGNYXKpTl0+Da7ASd0vbHs5Gr0GUBGLCm6vv4Gc9yRexs="
   }
 }
