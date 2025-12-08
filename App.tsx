@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { encodeFunctionData, createPublicClient, http, parseAbi } from 'viem';
+import { encodeFunctionData, createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
 import Header from './components/Header';
 import QuoteCard from './components/QuoteCard';
@@ -17,11 +17,30 @@ const publicClient = createPublicClient({
   transport: http()
 });
 
-const CONTRACT_ABI = parseAbi([
-  "function checkInAndClaim() external",
-  "function getCurrentDay() public view returns (uint256)",
-  "function lastClaimDay(address) public view returns (uint256)"
-]);
+// Using JSON ABI for stricter type inference and to avoid parseAbi issues
+const CONTRACT_ABI = [
+  {
+    type: 'function',
+    name: 'checkInAndClaim',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
+    name: 'getCurrentDay',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'lastClaimDay',
+    inputs: [{ name: '', type: 'address', internalType: 'address' }],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view'
+  }
+] as const;
 
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -123,51 +142,43 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // Logic: If already claimed, tell them and DO NOT unlock the button.
+    // Unlock claim logic: If already claimed, tell them and DO NOT unlock the button.
     if (hasClaimedToday) {
-      // You can decide whether to block sharing or just not unlock the button.
-      // Here we let them share but we don't enable the claim button.
       console.log("User shared, but has already claimed today.");
     } else {
       // Unlock the Claim button immediately upon sharing trigger
       setCanClaim(true);
     }
     
-    const shareText = `“${currentQuote.text}”\n- ${currentQuote.author}`;
-    const encodedText = encodeURIComponent(`${shareText}\n\nVia CastInspo`);
-    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
+    // Strict Image Sharing Logic
+    // We only use navigator.share to pop up the native share sheet with the IMAGE.
+    // We do NOT use window.open or sdk.actions.openUrl as fallbacks to avoid new tabs/text-only shares.
 
-    // 1. Try Native Share (Best for sharing the actual IMAGE to Warpcast on Mobile)
-    if (currentQuote.imageUrl && navigator.share) {
+    if (currentQuote.imageUrl && navigator.share && navigator.canShare) {
       try {
+        // 1. Fetch the image blob from the data URL
         const response = await fetch(currentQuote.imageUrl);
         const blob = await response.blob();
-        const file = new File([blob], 'daily-quote.png', { type: 'image/png' });
+        const file = new File([blob], 'quote.png', { type: 'image/png' });
         
         const shareData = {
           files: [file],
           title: 'CastInspo',
-          text: shareText,
+          text: `“${currentQuote.text}”\n- ${currentQuote.author}\n\nVia CastInspo`,
         };
 
-        // Check if the device supports sharing files
-        if (navigator.canShare && navigator.canShare(shareData)) {
+        // 2. Trigger Native Share
+        if (navigator.canShare(shareData)) {
           await navigator.share(shareData);
-          return; // Success
+        } else {
+           alert("Your device does not support sharing images directly.");
         }
       } catch (err) {
-        console.warn("Native share failed or was cancelled, attempting fallback...", err);
-        // Fall through to fallback
+        // User cancelled or share failed
+        console.warn("Share cancelled or failed:", err);
       }
-    }
-
-    // 2. Fallback: Farcaster SDK (Opens Warpcast Compose with TEXT only)
-    try {
-      sdk.actions.openUrl(warpcastUrl);
-    } catch (sdkErr) {
-      console.warn("SDK openUrl failed, attempting window.open...", sdkErr);
-      // 3. Ultimate Fallback: Standard Web Link
-      window.open(warpcastUrl, '_blank');
+    } else {
+      alert("Sharing is not supported in this environment.");
     }
   };
 
