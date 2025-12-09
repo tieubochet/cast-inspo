@@ -2,19 +2,19 @@
   "frame": {
     "name": "CastInspo",
     "version": "1",
-    "iconUrl": "https://cast-inspo.vercel.app/icon.png",
+    "iconUrl": "https://cast-inspo.vercel.app/logo.png",
     "homeUrl": "https://cast-inspo.vercel.app",
     "imageUrl": "https://cast-inspo.vercel.app/img/screenshot.png",
+    "buttonTitle": "Share & Claim",
     "splashImageUrl": "https://cast-inspo.vercel.app/logo.png",
     "splashBackgroundColor": "#181C28",
     "webhookUrl": "https://cast-inspo.vercel.app/api/webhook",
     "subtitle": "Quote. Share. Earn",
     "description": "Turn daily inspiration into on-chain rewards. Share the quote of the day on Farcaster and claim your daily bonus.",
-    "primaryCategory": "social",
     "screenshotUrls": [
       "https://cast-inspo.vercel.app/img/screenshot.png"
     ],
-    "heroImageUrl": "https://cast-inspo.vercel.app/img/hero.png",
+    "primaryCategory": "social",
     "tags": [
       "social",
       "community",
@@ -22,8 +22,8 @@
       "miniapp",
       "baseapp"
     ],
+    "heroImageUrl": "https://cast-inspo.vercel.app/img/hero.png",
     "tagline": "Quote. Share. Earn",
-    "buttonTitle": "Share & Claim",
     "ogTitle": "CastInspo - Quote. Share. Earn",
     "ogDescription": "Share the quote of the day on Farcaster and claim your daily bonus.",
     "ogImageUrl": "https://cast-inspo.vercel.app/img/share.jpg"
