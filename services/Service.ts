@@ -1,11 +1,17 @@
+
 import { Quote } from "../types";
 import quotesData from "../quotes.json";
 
-export const generateQuote = async (): Promise<Quote> => {
-  // 1. Pick a random quote from local data
-  // Using static import for performance and bundling reliability
-  const randomIndex = Math.floor(Math.random() * quotesData.length);
-  const rawQuote = quotesData[randomIndex];
+export const generateQuote = async (specificIndex?: number): Promise<Quote> => {
+  // 1. Determine which quote to use
+  // If specificIndex is provided and valid, use it. Otherwise, random.
+  let index = specificIndex;
+  
+  if (index === undefined || index === null || isNaN(index) || index < 0 || index >= quotesData.length) {
+    index = Math.floor(Math.random() * quotesData.length);
+  }
+
+  const rawQuote = quotesData[index];
   
   // 2. Generate an image for this quote
   let imageUrl: string | undefined = undefined;
@@ -16,7 +22,7 @@ export const generateQuote = async (): Promise<Quote> => {
   }
 
   return {
-    id: randomIndex,
+    id: index,
     text: rawQuote.content,
     author: rawQuote.author,
     imageUrl: imageUrl

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { encodeFunctionData, createPublicClient, http, parseAbi } from 'viem';
@@ -124,11 +125,15 @@ const App: React.FC = () => {
     initSDK();
   }, [checkClaimStatus]);
 
-  const fetchNewQuote = async () => {
+  const fetchNewQuote = async (index?: number) => {
     setLoading(true);
     try {
-      const quote = await generateQuote();
+      // Pass the specific index (if exists) to the service
+      const quote = await generateQuote(index);
       setCurrentQuote(quote);
+      
+      // If we loaded a specific quote, ensure we clear the URL param so 'New Quote' works as expected visually? 
+      // Actually, 'New Quote' calls this without args, so it works fine.
     } catch (error) {
       console.error("Failed to fetch quote", error);
     } finally {
@@ -277,9 +282,22 @@ const App: React.FC = () => {
     }
   };
 
+  // Initial Load Logic: Check for URL params (?q=123)
   useEffect(() => {
-    // Initial fetch
-    fetchNewQuote();
+    const params = new URLSearchParams(window.location.search);
+    const quoteParam = params.get('q');
+    
+    let specificIndex: number | undefined;
+
+    if (quoteParam) {
+      const parsedIndex = parseInt(quoteParam, 10);
+      if (!isNaN(parsedIndex)) {
+        specificIndex = parsedIndex;
+      }
+    }
+
+    // Fetch the quote (either specific ID or random if undefined)
+    fetchNewQuote(specificIndex);
   }, []);
 
   return (
@@ -323,7 +341,7 @@ const App: React.FC = () => {
               <QuoteCard 
                 quote={currentQuote} 
                 loading={loading} 
-                onNewQuote={fetchNewQuote}
+                onNewQuote={() => fetchNewQuote()} // No arg = Random
                 onShare={handleShare}
               />
             </>
