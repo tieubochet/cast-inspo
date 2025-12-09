@@ -48,13 +48,13 @@ const App: React.FC = () => {
           address: CONTRACT_ADDRESS,
           abi: VIEW_ABI,
           functionName: 'getCurrentDay'
-        }),
+        } as any),
         publicClient.readContract({
           address: CONTRACT_ADDRESS,
           abi: VIEW_ABI,
           functionName: 'lastClaimDay',
           args: [address as `0x${string}`]
-        })
+        } as any)
       ]);
 
       console.log(`Current Day: ${currentDay}, Last Claim: ${lastClaim}`);
@@ -133,23 +133,20 @@ const App: React.FC = () => {
       setCanClaim(true);
     }
 
-    const textToShare = `“${currentQuote.text}”\n- ${currentQuote.author}`;
-    
     // Construct the App URL to embed
     // We append the quote ID to the URL (e.g. ?q=123)
     // When this URL is embedded in a cast, Farcaster displays it as a frame/mini-app button
-    // This matches the behavior of 'quotes-app' where sharing creates a viral loop
-    const baseUrl = 'https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo' // Clean base URL
+    const baseUrl = 'https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo'; // Clean base URL
     const appUrl = `${baseUrl}?q=${currentQuote.id}`;
     
-    const encodedText = encodeURIComponent(textToShare);
     const encodedEmbed = encodeURIComponent(appUrl);
 
     // Deep link to Warpcast compose
-    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
+    // Only sharing the embed link, as requested (no text body)
+    const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedEmbed}`;
 
     try {
-      // Attempt to open the Warpcast composer with the pre-filled text and embed
+      // Attempt to open the Warpcast composer with the embed
       await sdk.actions.openUrl(warpcastUrl);
     } catch (e) {
       console.error("Failed to open Warpcast URL", e);
