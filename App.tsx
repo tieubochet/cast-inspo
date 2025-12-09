@@ -18,8 +18,12 @@ const publicClient = createPublicClient({
 });
 
 // Using parseAbi for better type inference
-const CONTRACT_ABI = parseAbi([
-  'function checkInAndClaim()',
+// Split ABIs to ensure type safety for readContract (view functions) vs encodeFunctionData (write functions)
+const CLAIM_ABI = parseAbi([
+  'function checkInAndClaim()'
+]);
+
+const VIEW_ABI = parseAbi([
   'function getCurrentDay() view returns (uint256)',
   'function lastClaimDay(address owner) view returns (uint256)'
 ]);
@@ -42,12 +46,12 @@ const App: React.FC = () => {
       const [currentDay, lastClaim] = await Promise.all([
         publicClient.readContract({
           address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
+          abi: VIEW_ABI,
           functionName: 'getCurrentDay'
         }),
         publicClient.readContract({
           address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
+          abi: VIEW_ABI,
           functionName: 'lastClaimDay',
           args: [address as `0x${string}`]
         })
@@ -124,26 +128,29 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // Unlock claim logic immediately
+    // Unlock claim logic immediately to allow "Share to Claim" flow
     if (!hasClaimedToday) {
       setCanClaim(true);
     }
 
     const textToShare = `“${currentQuote.text}”\n- ${currentQuote.author}`;
     
-    // Construct the Deep Link to Warpcast Compose
-    // This allows the user to post the quote and embeds the Mini App link (Open App button)
-    // We append the quote ID to the URL so the app can optionally load that specific quote when opened (future enhancement)
-    const baseUrl = window.location.href.split('?')[0];
+    // Construct the App URL to embed
+    // We append the quote ID to the URL (e.g. ?q=123)
+    // When this URL is embedded in a cast, Farcaster displays it as a frame/mini-app button
+    // This matches the behavior of 'quotes-app' where sharing creates a viral loop
+    const baseUrl = window.location.href.split('?')[0]; // Clean base URL
     const appUrl = `${baseUrl}?q=${currentQuote.id}`;
     
     const encodedText = encodeURIComponent(textToShare);
     const encodedEmbed = encodeURIComponent(appUrl);
 
+    // Deep link to Warpcast compose
     const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
 
     try {
-      sdk.actions.openUrl(warpcastUrl);
+      // Attempt to open the Warpcast composer with the pre-filled text and embed
+      await sdk.actions.openUrl(warpcastUrl);
     } catch (e) {
       console.error("Failed to open Warpcast URL", e);
     }
@@ -176,7 +183,7 @@ const App: React.FC = () => {
     try {
       // 1. Encode the transaction data
       const calldata = encodeFunctionData({
-        abi: CONTRACT_ABI,
+        abi: CLAIM_ABI,
         functionName: "checkInAndClaim"
       });
 
@@ -205,13 +212,11 @@ const App: React.FC = () => {
       
       console.log("Transaction sent:", txHash);
       
-      alert(`Claim submitted successfully! Hash: ${txHash}`);
-      
-      // Update status immediately assuming success (optimistic UI)
+      // Optimistic UI update
       setHasClaimedToday(true);
       setCanClaim(false);
 
-      // Optionally re-verify from chain after a delay
+      // Re-check status after a delay
       setTimeout(() => {
         if (userAddress) checkClaimStatus(userAddress);
       }, 5000);
@@ -220,10 +225,9 @@ const App: React.FC = () => {
       console.error("Claim failed:", error);
       if (error.message?.includes('reverted') || error.code === 3 || error.message?.includes('execution reverted')) {
          alert("Transaction failed: Execution reverted. You may have already claimed today, or the contract is out of funds.");
-         // Re-check status in case we missed it
          if (userAddress) checkClaimStatus(userAddress);
       } else if (error.code === 4001) {
-         alert("Transaction rejected by user.");
+         // User rejected
       } else {
          alert(`Failed to claim: ${error.message || "Unknown error"}`);
       }
