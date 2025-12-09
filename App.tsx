@@ -13,7 +13,7 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
 const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
 
-// Free API Key for Demo (Get your own at https://api.imgbb.com/)
+// 🔴 QUAN TRỌNG: Dán API Key ImgBB của bạn vào đây 🔴
 const IMGBB_API_KEY = "670ba407e859d269efae9c347a50f836"; 
 
 // Public Client to read contract state without prompting user
@@ -48,6 +48,8 @@ const dataURItoBlob = (dataURI: string) => {
 const uploadToImgBB = async (imageBlob: Blob): Promise<string> => {
   const formData = new FormData();
   formData.append('image', imageBlob);
+  // Optional: Set expiration to auto-delete after 1 week (604800 seconds) to save space/privacy
+  // formData.append('expiration', '604800'); 
 
   const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
     method: 'POST',
@@ -58,7 +60,7 @@ const uploadToImgBB = async (imageBlob: Blob): Promise<string> => {
   if (data.success) {
     return data.data.url;
   } else {
-    throw new Error('ImgBB Upload failed');
+    throw new Error('ImgBB Upload failed: ' + (data.error?.message || 'Unknown error'));
   }
 };
 
@@ -200,38 +202,25 @@ const App: React.FC = () => {
     
     // 1. Prepare File
     const blob = dataURItoBlob(currentQuote.imageUrl);
-    const file = new File([blob], 'quote.png', { type: 'image/png' });
 
-    // 2. Mobile Strategy: Native File Share (Fastest)
-    // Most mobile WebViews support navigator.canShare with files
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          text: `${shareText}\n\n${appUrl}` // Attach link in text for mobile
-        });
-        return; // Success, exit
-      } catch (err) {
-        console.warn("Native share cancelled or failed, falling back...", err);
-      }
-    }
-
-    // 3. Desktop Strategy: Auto-Upload + Embed (Fully Automated)
-    // Since we can't paste programmatically, we upload to a host and embed the URL.
+    // 2. Universal Strategy: Upload & Embed
+    // This ensures consistency on both Mobile and Desktop: 
+    // It creates a Cast with the Image Embed + The App Link Embed (Button).
+    
     showToast("Uploading image...", "loading", 0); // Persistent toast
 
     try {
       // Upload to ImgBB
       const publicImageUrl = await uploadToImgBB(blob);
       
-      showToast("Ready!", "success");
+      showToast("Opening Warpcast...", "success");
 
       // Construct Warpcast URL with BOTH the image embed and the app frame link
-      // Warpcast handles multiple embeds: first one shows as the main image usually.
       const encodedText = encodeURIComponent(shareText);
       const encodedImage = encodeURIComponent(publicImageUrl);
       const encodedAppUrl = encodeURIComponent(appUrl);
       
+      // Syntax: embeds[]=URL1&embeds[]=URL2
       const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedImage}&embeds[]=${encodedAppUrl}`;
 
       await sdk.actions.openUrl(warpcastUrl);
@@ -240,7 +229,7 @@ const App: React.FC = () => {
       console.error("Upload failed", e);
       showToast("Upload failed, trying download...", "error");
       
-      // Last Resort: Download file
+      // Last Resort: Download file manually if API fails
       const link = document.createElement('a');
       link.href = currentQuote.imageUrl;
       link.download = `castinspo-${currentQuote.id}.png`;
@@ -248,6 +237,7 @@ const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       
+      // Just open composer with link
       const encodedText = encodeURIComponent(`${shareText}\n\n${appUrl}`);
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodedText}`);
     }
