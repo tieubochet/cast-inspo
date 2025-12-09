@@ -8,9 +8,13 @@ import QuoteCard from './components/QuoteCard';
 import Footer from './components/Footer';
 import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
 const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
+
+// Free API Key for Demo (Get your own at https://api.imgbb.com/)
+const IMGBB_API_KEY = "c8959d5771d99905290b39974246062f"; 
 
 // Public Client to read contract state without prompting user
 const publicClient = createPublicClient({
@@ -40,6 +44,39 @@ const dataURItoBlob = (dataURI: string) => {
   return new Blob([ab], { type: mimeString });
 };
 
+// Helper to upload image to ImgBB
+const uploadToImgBB = async (imageBlob: Blob): Promise<string> => {
+  const formData = new FormData();
+  formData.append('image', imageBlob);
+
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    return data.data.url;
+  } else {
+    throw new Error('ImgBB Upload failed');
+  }
+};
+
+// Simple Toast Component
+const Toast = ({ message, type }: { message: string | null, type: 'loading' | 'success' | 'error' }) => {
+  if (!message) return null;
+  
+  const bgClass = type === 'error' ? 'bg-red-500/90' : type === 'success' ? 'bg-emerald-500/90' : 'bg-zinc-800/90';
+  const icon = type === 'loading' ? <Loader2 size={16} className="animate-spin" /> : type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />;
+
+  return (
+    <div className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full backdrop-blur-md text-white text-sm font-medium shadow-xl flex items-center gap-2 z-50 transition-all duration-300 ${bgClass}`}>
+      {icon}
+      <span>{message}</span>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -51,6 +88,18 @@ const App: React.FC = () => {
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [isClaiming, setIsClaiming] = useState<boolean>(false);
   const [hasClaimedToday, setHasClaimedToday] = useState<boolean>(false);
+
+  // Toast State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'loading' | 'success' | 'error'>('loading');
+
+  const showToast = (msg: string, type: 'loading' | 'success' | 'error' = 'loading', duration = 3000) => {
+    setToastMessage(msg);
+    setToastType(type);
+    if (duration > 0) {
+      setTimeout(() => setToastMessage(null), duration);
+    }
+  };
 
   // Check if user has already claimed today
   const checkClaimStatus = useCallback(async (address: string) => {
@@ -131,9 +180,6 @@ const App: React.FC = () => {
       // Pass the specific index (if exists) to the service
       const quote = await generateQuote(index);
       setCurrentQuote(quote);
-      
-      // If we loaded a specific quote, ensure we clear the URL param so 'New Quote' works as expected visually? 
-      // Actually, 'New Quote' calls this without args, so it works fine.
     } catch (error) {
       console.error("Failed to fetch quote", error);
     } finally {
@@ -144,81 +190,66 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote || !currentQuote.imageUrl) return;
     
-    // Unlock claim logic immediately to allow "Share to Claim" flow
+    // Unlock claim logic immediately
     if (!hasClaimedToday) {
       setCanClaim(true);
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
-    const shareText = `“${currentQuote.text}”\n\nCheck out CastInspo: ${appUrl}`;
+    const shareText = `“${currentQuote.text}”`;
     
-    let fileShared = false;
-
     // 1. Prepare File
     const blob = dataURItoBlob(currentQuote.imageUrl);
     const file = new File([blob], 'quote.png', { type: 'image/png' });
 
-    // 2. Attempt Native Share (Mobile)
-    // We try/catch this because navigator.share support varies wildly in WebViews
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 2. Mobile Strategy: Native File Share (Fastest)
+    // Most mobile WebViews support navigator.canShare with files
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           files: [file],
-          text: shareText
+          text: `${shareText}\n\n${appUrl}` // Attach link in text for mobile
         });
-        fileShared = true;
+        return; // Success, exit
       } catch (err) {
-        console.warn("Native share failed:", err);
+        console.warn("Native share cancelled or failed, falling back...", err);
       }
     }
 
-    // 3. Desktop Fallback Strategy
-    if (!fileShared) {
-      // Strategy A: Try Copy to Clipboard (Best UX)
-      let clipboardSuccess = false;
-      try {
-        if (navigator.clipboard && navigator.clipboard.write) {
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              [blob.type]: blob
-            })
-          ]);
-          clipboardSuccess = true;
-          alert("Image copied to clipboard! \n\nOpening Warpcast... just Paste (Ctrl+V) the image.");
-        }
-      } catch (clipboardErr) {
-        console.warn("Clipboard write failed:", clipboardErr);
-      }
+    // 3. Desktop Strategy: Auto-Upload + Embed (Fully Automated)
+    // Since we can't paste programmatically, we upload to a host and embed the URL.
+    showToast("Uploading image...", "loading", 0); // Persistent toast
 
-      // Strategy B: Download File (Backup UX)
-      if (!clipboardSuccess) {
-        try {
-          // Auto-download the image
-          const link = document.createElement('a');
-          link.href = currentQuote.imageUrl;
-          link.download = `castinspo-${currentQuote.id}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          alert("Image downloaded! \n\nOpening Warpcast... please attach the downloaded image.");
-          
-          // Small delay to ensure download starts before context switch
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (e) {
-          console.error("Auto-download failed:", e);
-        }
-      }
+    try {
+      // Upload to ImgBB
+      const publicImageUrl = await uploadToImgBB(blob);
+      
+      showToast("Ready!", "success");
 
-      // Open Warpcast Composer
+      // Construct Warpcast URL with BOTH the image embed and the app frame link
+      // Warpcast handles multiple embeds: first one shows as the main image usually.
       const encodedText = encodeURIComponent(shareText);
-      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
+      const encodedImage = encodeURIComponent(publicImageUrl);
+      const encodedAppUrl = encodeURIComponent(appUrl);
+      
+      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedImage}&embeds[]=${encodedAppUrl}`;
 
-      try {
-        await sdk.actions.openUrl(warpcastUrl);
-      } catch (e) {
-        console.error("Failed to open Warpcast URL", e);
-      }
+      await sdk.actions.openUrl(warpcastUrl);
+      setToastMessage(null); // Clear toast
+    } catch (e) {
+      console.error("Upload failed", e);
+      showToast("Upload failed, trying download...", "error");
+      
+      // Last Resort: Download file
+      const link = document.createElement('a');
+      link.href = currentQuote.imageUrl;
+      link.download = `castinspo-${currentQuote.id}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      const encodedText = encodeURIComponent(`${shareText}\n\n${appUrl}`);
+      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodedText}`);
     }
   };
 
@@ -282,6 +313,8 @@ const App: React.FC = () => {
       setHasClaimedToday(true);
       setCanClaim(false);
 
+      showToast("Claimed successfully!", "success");
+
       // Re-check status after a delay
       setTimeout(() => {
         if (userAddress) checkClaimStatus(userAddress);
@@ -290,12 +323,12 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error("Claim failed:", error);
       if (error.message?.includes('reverted') || error.code === 3 || error.message?.includes('execution reverted')) {
-         alert("Transaction failed: Execution reverted. You may have already claimed today, or the contract is out of funds.");
+         showToast("Transaction failed. Already claimed?", "error");
          if (userAddress) checkClaimStatus(userAddress);
       } else if (error.code === 4001) {
          // User rejected
       } else {
-         alert(`Failed to claim: ${error.message || "Unknown error"}`);
+         showToast("Failed to claim", "error");
       }
     } finally {
       setIsClaiming(false);
@@ -324,6 +357,8 @@ const App: React.FC = () => {
     // Mobile container constraint
     <div className="w-full max-w-[393px] min-h-screen bg-zinc-950 text-slate-100 flex flex-col font-sans relative overflow-hidden shadow-2xl mx-auto">
       
+      <Toast message={toastMessage} type={toastType} />
+
       {/* Background Ambience - Colorful Moving Gradient & Blobs */}
       <div className="absolute inset-0 z-0">
         {/* Base animated gradient */}
