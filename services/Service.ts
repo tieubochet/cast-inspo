@@ -16,6 +16,7 @@ export const generateQuote = async (): Promise<Quote> => {
   }
 
   return {
+    id: randomIndex,
     text: rawQuote.content,
     author: rawQuote.author,
     imageUrl: imageUrl

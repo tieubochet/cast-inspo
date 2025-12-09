@@ -131,43 +131,21 @@ const App: React.FC = () => {
 
     const textToShare = `“${currentQuote.text}”\n- ${currentQuote.author}`;
     
-    // Strategy:
-    // 1. Try Native Image Share (Priority)
-    // 2. Fallback to Warpcast Compose URL (Text only)
+    // Construct the Deep Link to Warpcast Compose
+    // This allows the user to post the quote and embeds the Mini App link (Open App button)
+    // We append the quote ID to the URL so the app can optionally load that specific quote when opened (future enhancement)
+    const baseUrl = window.location.href.split('?')[0];
+    const appUrl = `${baseUrl}?q=${currentQuote.id}`;
+    
+    const encodedText = encodeURIComponent(textToShare);
+    const encodedEmbed = encodeURIComponent(appUrl);
 
-    let nativeShareSuccess = false;
+    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
 
-    if (currentQuote.imageUrl && navigator.share && navigator.canShare) {
-      try {
-        const response = await fetch(currentQuote.imageUrl);
-        const blob = await response.blob();
-        const file = new File([blob], 'quote.png', { type: 'image/png' });
-        
-        const shareData = {
-          files: [file],
-          title: 'CastInspo',
-          text: `${textToShare}\n\nVia CastInspo`,
-        };
-
-        if (navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          nativeShareSuccess = true;
-        }
-      } catch (err) {
-        console.warn("Native image share failed or cancelled, falling back to composer...", err);
-      }
-    }
-
-    // If native share didn't run (or failed), open Warpcast composer
-    if (!nativeShareSuccess) {
-       try {
-        const encodedText = encodeURIComponent(`${textToShare}\n\nVia CastInspo`);
-        // Embed the current URL if available or a placeholder
-        const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
-        sdk.actions.openUrl(warpcastUrl);
-      } catch (e) {
-        console.error("Failed to open Warpcast URL", e);
-      }
+    try {
+      sdk.actions.openUrl(warpcastUrl);
+    } catch (e) {
+      console.error("Failed to open Warpcast URL", e);
     }
   };
 
