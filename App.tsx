@@ -154,14 +154,14 @@ const App: React.FC = () => {
       const blob = dataURItoBlob(currentQuote.imageUrl);
       const file = new File([blob], 'quote.png', { type: 'image/png' });
 
-      // Check if the device supports file sharing (Mobile mostly)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          url: appUrl, // Attach the link to the mini app
-        });
-        return; // Success, exit
-      }
+      // We bypass navigator.canShare checks as they are unreliable in WebViews.
+      // IMPORTANT: We place the URL in the 'text' field.
+      // Many mobile implementations drop the file if a separate 'url' field is present.
+      await navigator.share({
+        files: [file],
+        text: appUrl, 
+      });
+      return; 
     } catch (error) {
       console.warn("Native file sharing failed or cancelled, falling back to link embedding", error);
     }
