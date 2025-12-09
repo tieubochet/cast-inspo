@@ -198,15 +198,12 @@ const App: React.FC = () => {
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
-    const shareText = `“${currentQuote.text}”`;
+    // Removed shareText to clean up the post as requested
     
     // 1. Prepare File
     const blob = dataURItoBlob(currentQuote.imageUrl);
 
     // 2. Universal Strategy: Upload & Embed
-    // This ensures consistency on both Mobile and Desktop: 
-    // It creates a Cast with the Image Embed + The App Link Embed (Button).
-    
     showToast("Uploading image...", "loading", 0); // Persistent toast
 
     try {
@@ -216,12 +213,12 @@ const App: React.FC = () => {
       showToast("Opening Warpcast...", "success");
 
       // Construct Warpcast URL with BOTH the image embed and the app frame link
-      const encodedText = encodeURIComponent(shareText);
+      // Notice: `text` param is removed or empty
       const encodedImage = encodeURIComponent(publicImageUrl);
       const encodedAppUrl = encodeURIComponent(appUrl);
       
       // Syntax: embeds[]=URL1&embeds[]=URL2
-      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedImage}&embeds[]=${encodedAppUrl}`;
+      const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedImage}&embeds[]=${encodedAppUrl}`;
 
       await sdk.actions.openUrl(warpcastUrl);
       setToastMessage(null); // Clear toast
@@ -238,8 +235,7 @@ const App: React.FC = () => {
       document.body.removeChild(link);
       
       // Just open composer with link
-      const encodedText = encodeURIComponent(`${shareText}\n\n${appUrl}`);
-      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodedText}`);
+      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(appUrl)}`);
     }
   };
 

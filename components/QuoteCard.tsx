@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Quote } from '../types';
 import { Share2, RefreshCw, Loader2 } from 'lucide-react';
@@ -12,8 +13,8 @@ interface QuoteCardProps {
 const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onShare }) => {
   return (
     <div className="w-full flex flex-col items-center justify-center pt-2 pb-6 flex-grow gap-6">
-      {/* Quote Display Container */}
-      <div className="aspect-[6/4] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
+      {/* Quote Display Container - Updated to 1.91:1 Aspect Ratio (Social Card Standard) */}
+      <div className="aspect-[1.91/1] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
         
         {/* Content Area */}
         <div className="w-full h-full flex items-center justify-center">
@@ -26,18 +27,18 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onSha
              <img 
                src={quote.imageUrl} 
                alt={`${quote.text} - ${quote.author}`}
-               className="w-full h-full object-cover"
+               className="w-full h-full object-contain" // Changed to contain to ensure full image visibility
              />
           ) : (
-            // Fallback text view - Styled to match the generated image
-            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-               <div className="bg-white text-[#6A3CFF] w-14 h-14 rounded-full flex items-center justify-center mb-6 shadow-md">
-                 <span className="text-4xl font-sans font-bold leading-none mt-2">“</span>
+            // Fallback text view
+            <div className="p-4 md:p-8 text-center flex flex-col items-center justify-center h-full">
+               <div className="bg-white text-[#6A3CFF] w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center mb-4 shadow-md">
+                 <span className="text-2xl md:text-4xl font-sans font-bold leading-none mt-1">“</span>
                </div>
-              <p className="text-3xl md:text-5xl text-white leading-relaxed italic mb-6 drop-shadow-sm font-['Arsenal']">
+              <p className="text-xl md:text-3xl text-white leading-relaxed italic mb-4 drop-shadow-sm font-['Arsenal'] px-4">
                 {quote?.text}
               </p>
-              <p className="text-amber-300 font-bold text-xl md:text-2xl tracking-wide font-['Quicksand']">
+              <p className="text-amber-300 font-bold text-lg md:text-xl tracking-wide font-['Quicksand']">
                 - {quote?.author}
               </p>
             </div>
