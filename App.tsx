@@ -145,45 +145,55 @@ const App: React.FC = () => {
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
+    const shareText = `“${currentQuote.text}”\n\nCheck out CastInspo: ${appUrl}`;
+    
+    let fileShared = false;
 
-    try {
-      // METHOD 1: Native Share with Image File (Mobile Priority)
-      // Convert base64 image to Blob -> File
-      const blob = dataURItoBlob(currentQuote.imageUrl);
-      const file = new File([blob], 'quote.png', { type: 'image/png' });
+    // 1. Prepare File
+    const blob = dataURItoBlob(currentQuote.imageUrl);
+    const file = new File([blob], 'quote.png', { type: 'image/png' });
 
-      // Check if browser supports sharing files (Mobile Farcaster does)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 2. Attempt Native Share (Mobile)
+    // We try/catch this because navigator.share support varies wildly in WebViews
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
         await navigator.share({
           files: [file],
-          title: 'CastInspo',
-          // Putting the URL in 'text' ensures it appears as a caption in many apps
-          text: `“${currentQuote.text}”\n\nCheck out CastInspo: ${appUrl}`,
+          text: shareText
         });
-        return; // Success, exit
-      } else {
-         // Try sharing without canShare check (some webviews are strict)
-         // or if files aren't supported, we flow to catch/fallback
-         await navigator.share({
-          files: [file],
-          text: appUrl,
-        });
-        return;
+        fileShared = true;
+      } catch (err) {
+        console.warn("Native share failed:", err);
       }
-    } catch (error) {
-      console.warn("Native file sharing failed or not supported:", error);
     }
 
-    // METHOD 2: Fallback to Warpcast Link Embedding (Desktop)
-    // If native sharing fails (e.g. on Desktop), we open the Warpcast composer
-    // with the Mini App URL embedded.
-    const encodedEmbed = encodeURIComponent(appUrl);
-    const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedEmbed}`;
+    // 3. Fallback: Download & Open URL (Desktop or if Native Share failed)
+    if (!fileShared) {
+      try {
+        // Auto-download the image
+        const link = document.createElement('a');
+        link.href = currentQuote.imageUrl;
+        link.download = `castinspo-${currentQuote.id}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Small delay to ensure download starts before context switch
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        console.error("Auto-download failed:", e);
+      }
 
-    try {
-      await sdk.actions.openUrl(warpcastUrl);
-    } catch (e) {
-      console.error("Failed to open Warpcast URL", e);
+      // Open Warpcast Composer
+      // We pass the text. User can attach the downloaded image manually.
+      const encodedText = encodeURIComponent(shareText);
+      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
+
+      try {
+        await sdk.actions.openUrl(warpcastUrl);
+      } catch (e) {
+        console.error("Failed to open Warpcast URL", e);
+      }
     }
   };
 
