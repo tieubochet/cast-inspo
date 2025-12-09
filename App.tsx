@@ -9,7 +9,6 @@ import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
-const CHAIN_ID = 8453; // Base Mainnet
 
 // Public Client to read contract state without prompting user
 const publicClient = createPublicClient({
@@ -18,7 +17,6 @@ const publicClient = createPublicClient({
 });
 
 // Using parseAbi for better type inference
-// Split ABIs to ensure type safety for readContract (view functions) vs encodeFunctionData (write functions)
 const CLAIM_ABI = parseAbi([
   'function checkInAndClaim()'
 ]);
@@ -27,6 +25,18 @@ const VIEW_ABI = parseAbi([
   'function getCurrentDay() view returns (uint256)',
   'function lastClaimDay(address owner) view returns (uint256)'
 ]);
+
+// Helper to convert Base64 Data URL to Blob for sharing
+const dataURItoBlob = (dataURI: string) => {
+  const byteString = atob(dataURI.split(',')[1]);
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
+};
 
 const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -126,27 +136,40 @@ const App: React.FC = () => {
   };
 
   const handleShare = async () => {
-    if (!currentQuote) return;
+    if (!currentQuote || !currentQuote.imageUrl) return;
     
     // Unlock claim logic immediately to allow "Share to Claim" flow
     if (!hasClaimedToday) {
       setCanClaim(true);
     }
 
-    // Construct the App URL to embed
-    // We append the quote ID to the URL (e.g. ?q=123)
-    // When this URL is embedded in a cast, Farcaster displays it as a frame/mini-app button
-    const baseUrl = 'https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo'; // Clean base URL
+    const baseUrl = window.location.href.split('?')[0];
     const appUrl = `${baseUrl}?q=${currentQuote.id}`;
-    
-    const encodedEmbed = encodeURIComponent(appUrl);
 
-    // Deep link to Warpcast compose
-    // Only sharing the embed link, as requested (no text body)
+    try {
+      // METHOD 1: Native Share with Image File (Priority)
+      // This attempts to pass the actual generated image blob to the share sheet.
+      // On Farcaster Mobile, this should attach the image to the cast.
+      const blob = dataURItoBlob(currentQuote.imageUrl);
+      const file = new File([blob], 'quote.png', { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          url: appUrl, // Attach the link to the mini app
+        });
+        return; // Success, exit
+      }
+    } catch (error) {
+      console.warn("Native file sharing failed or cancelled, falling back to link sharing", error);
+    }
+
+    // METHOD 2: Fallback to Link Embedding (Desktop / Web)
+    // If native sharing fails (e.g. desktop), we open the composer with just the link.
+    const encodedEmbed = encodeURIComponent(appUrl);
     const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedEmbed}`;
 
     try {
-      // Attempt to open the Warpcast composer with the embed
       await sdk.actions.openUrl(warpcastUrl);
     } catch (e) {
       console.error("Failed to open Warpcast URL", e);
