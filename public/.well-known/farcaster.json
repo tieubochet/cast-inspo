@@ -2,11 +2,11 @@
   "frame": {
     "name": "CastInspo",
     "version": "1",
-    "iconUrl": "https://cast-inspo.vercel.app/logo.png",
+    "iconUrl": "https://cast-inspo.vercel.app/img/logo.png",
     "homeUrl": "https://cast-inspo.vercel.app",
     "imageUrl": "https://cast-inspo.vercel.app/img/screenshot.png",
     "buttonTitle": "Share & Claim",
-    "splashImageUrl": "https://cast-inspo.vercel.app/logo.png",
+    "splashImageUrl": "https://cast-inspo.vercel.app/img/logo.png",
     "splashBackgroundColor": "#181C28",
     "webhookUrl": "https://cast-inspo.vercel.app/api/webhook",
     "subtitle": "Quote. Share. Earn",
