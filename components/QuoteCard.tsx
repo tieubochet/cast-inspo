@@ -16,8 +16,8 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onSha
       {/* Quote Display Container - Updated to 1.91:1 Aspect Ratio (Social Card Standard) */}
       <div className="aspect-[1.91/1] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
         
-        {/* Content Area */}
-        <div className="w-full h-full flex items-center justify-center p-1">
+        {/* Content Area - Increased padding to p-3 for better safe area on mobile */}
+        <div className="w-full h-full flex items-center justify-center p-3">
           {loading ? (
             <div className="flex flex-col items-center justify-center space-y-4">
               <Loader2 className="w-10 h-10 text-white/80 animate-spin" />
