@@ -144,34 +144,40 @@ const App: React.FC = () => {
       setCanClaim(true);
     }
 
-    // Construct the Deep Link with the quote ID
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
 
     try {
-      // METHOD 1: Native Share with Image File (Priority)
-      // This is the only way to share a Client-Side generated image (Canvas)
-      // directly to the Farcaster feed as an image attachment.
+      // METHOD 1: Native Share with Image File (Mobile Priority)
+      // Convert base64 image to Blob -> File
       const blob = dataURItoBlob(currentQuote.imageUrl);
       const file = new File([blob], 'quote.png', { type: 'image/png' });
 
-      // We bypass navigator.canShare checks as they are unreliable in WebViews.
-      // IMPORTANT: We place the URL in the 'text' field.
-      // Many mobile implementations drop the file if a separate 'url' field is present.
-      await navigator.share({
-        files: [file],
-        text: appUrl, 
-      });
-      return; 
+      // Check if browser supports sharing files (Mobile Farcaster does)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'CastInspo',
+          // Putting the URL in 'text' ensures it appears as a caption in many apps
+          text: `“${currentQuote.text}”\n\nCheck out CastInspo: ${appUrl}`,
+        });
+        return; // Success, exit
+      } else {
+         // Try sharing without canShare check (some webviews are strict)
+         // or if files aren't supported, we flow to catch/fallback
+         await navigator.share({
+          files: [file],
+          text: appUrl,
+        });
+        return;
+      }
     } catch (error) {
-      console.warn("Native file sharing failed or cancelled, falling back to link embedding", error);
+      console.warn("Native file sharing failed or not supported:", error);
     }
 
-    // METHOD 2: Fallback to Link Embedding (Desktop / Web)
-    // If native sharing isn't supported, we just open the Composer with the link.
-    // NOTE: This will NOT show the dynamic image because we don't have a backend to serve OG tags.
-    // It will show the default app preview image.
+    // METHOD 2: Fallback to Warpcast Link Embedding (Desktop)
+    // If native sharing fails (e.g. on Desktop), we open the Warpcast composer
+    // with the Mini App URL embedded.
     const encodedEmbed = encodeURIComponent(appUrl);
-    // Removed "text" parameter to ensure only the embed is shared
     const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedEmbed}`;
 
     try {
