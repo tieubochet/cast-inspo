@@ -172,25 +172,45 @@ const App: React.FC = () => {
       }
     }
 
-    // 3. Fallback: Download & Open URL (Desktop or if Native Share failed)
+    // 3. Desktop Fallback Strategy
     if (!fileShared) {
+      // Strategy A: Try Copy to Clipboard (Best UX)
+      let clipboardSuccess = false;
       try {
-        // Auto-download the image
-        const link = document.createElement('a');
-        link.href = currentQuote.imageUrl;
-        link.download = `castinspo-${currentQuote.id}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Small delay to ensure download starts before context switch
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (e) {
-        console.error("Auto-download failed:", e);
+        if (navigator.clipboard && navigator.clipboard.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              [blob.type]: blob
+            })
+          ]);
+          clipboardSuccess = true;
+          alert("Image copied to clipboard! \n\nOpening Warpcast... just Paste (Ctrl+V) the image.");
+        }
+      } catch (clipboardErr) {
+        console.warn("Clipboard write failed:", clipboardErr);
+      }
+
+      // Strategy B: Download File (Backup UX)
+      if (!clipboardSuccess) {
+        try {
+          // Auto-download the image
+          const link = document.createElement('a');
+          link.href = currentQuote.imageUrl;
+          link.download = `castinspo-${currentQuote.id}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          alert("Image downloaded! \n\nOpening Warpcast... please attach the downloaded image.");
+          
+          // Small delay to ensure download starts before context switch
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          console.error("Auto-download failed:", e);
+        }
       }
 
       // Open Warpcast Composer
-      // We pass the text. User can attach the downloaded image manually.
       const encodedText = encodeURIComponent(shareText);
       const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
 
