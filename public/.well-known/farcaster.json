@@ -25,8 +25,7 @@
     "heroImageUrl": "https://cast-inspo.vercel.app/img/hero.png",
     "tagline": "Quote. Share. Earn",
     "ogTitle": "CastInspo - Quote. Share. Earn",
-    "ogDescription": "Share the quote of the day on Farcaster and claim your daily bonus.",
-    "ogImageUrl": "https://cast-inspo.vercel.app/img/share.jpg"
+    "ogDescription": "Share the quote of the day on Farcaster and claim your daily bonus."
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjI2MDI5OSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGE1NjNDYTRFMGZmMjIzNjMzMkUyRkRmRDkxZkZEOTZlNTk0NzQ5RkYifQ",
