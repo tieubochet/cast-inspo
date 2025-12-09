@@ -14,7 +14,7 @@ const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
 const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
 
 // Free API Key for Demo (Get your own at https://api.imgbb.com/)
-const IMGBB_API_KEY = "c8959d5771d99905290b39974246062f"; 
+const IMGBB_API_KEY = "670ba407e859d269efae9c347a50f836"; 
 
 // Public Client to read contract state without prompting user
 const publicClient = createPublicClient({
