@@ -9,6 +9,7 @@ import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
+const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
 
 // Public Client to read contract state without prompting user
 const publicClient = createPublicClient({
@@ -143,16 +144,17 @@ const App: React.FC = () => {
       setCanClaim(true);
     }
 
-    const baseUrl = window.location.href.split('?')[0];
-    const appUrl = `${baseUrl}?q=${currentQuote.id}`;
+    // Construct the Deep Link with the quote ID
+    const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
 
     try {
       // METHOD 1: Native Share with Image File (Priority)
-      // This attempts to pass the actual generated image blob to the share sheet.
-      // On Farcaster Mobile, this should attach the image to the cast.
+      // This is the only way to share a Client-Side generated image (Canvas)
+      // directly to the Farcaster feed as an image attachment.
       const blob = dataURItoBlob(currentQuote.imageUrl);
       const file = new File([blob], 'quote.png', { type: 'image/png' });
 
+      // Check if the device supports file sharing (Mobile mostly)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
@@ -161,12 +163,15 @@ const App: React.FC = () => {
         return; // Success, exit
       }
     } catch (error) {
-      console.warn("Native file sharing failed or cancelled, falling back to link sharing", error);
+      console.warn("Native file sharing failed or cancelled, falling back to link embedding", error);
     }
 
     // METHOD 2: Fallback to Link Embedding (Desktop / Web)
-    // If native sharing fails (e.g. desktop), we open the composer with just the link.
+    // If native sharing isn't supported, we just open the Composer with the link.
+    // NOTE: This will NOT show the dynamic image because we don't have a backend to serve OG tags.
+    // It will show the default app preview image.
     const encodedEmbed = encodeURIComponent(appUrl);
+    // Removed "text" parameter to ensure only the embed is shared
     const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedEmbed}`;
 
     try {
