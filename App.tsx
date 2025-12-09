@@ -139,7 +139,7 @@ const App: React.FC = () => {
     // We append the quote ID to the URL (e.g. ?q=123)
     // When this URL is embedded in a cast, Farcaster displays it as a frame/mini-app button
     // This matches the behavior of 'quotes-app' where sharing creates a viral loop
-    const baseUrl = window.location.href.split('?')[0]; // Clean base URL
+    const baseUrl = 'https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo' // Clean base URL
     const appUrl = `${baseUrl}?q=${currentQuote.id}`;
     
     const encodedText = encodeURIComponent(textToShare);
