@@ -59,24 +59,24 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
 
     // --- Decoration (Icon) ---
-    // Moved up slightly due to shorter height
-    const iconY = 100; 
+    const iconY = 80; 
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(width / 2, iconY, 40, 0, Math.PI * 2);
+    ctx.arc(width / 2, iconY, 35, 0, Math.PI * 2);
     ctx.fill();
     
     // Quote Icon inside circle
     ctx.fillStyle = '#6A3CFF';
-    ctx.font = 'bold 60px sans-serif';
+    ctx.font = 'bold 50px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('“', width / 2, iconY + 25);
+    ctx.fillText('“', width / 2, iconY + 20);
 
 
     // --- Text Configuration ---
-    const fontSize = 60; // Slightly smaller to fit 630px height better
-    const lineHeight = 80;
+    // Smaller font size to prevent overflow on mobile/smaller screens when scaled down
+    const fontSize = 45; 
+    const lineHeight = 60;
     const fontFamily = "'Arsenal', sans-serif";
     const textColor = '#ffffff';
     
@@ -86,7 +86,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     ctx.textBaseline = 'middle';
 
     // --- Wrap Text Logic ---
-    const maxWidth = width - 240; // More padding on sides
+    const maxWidth = width - 200; // More padding
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -106,18 +106,17 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
 
     // --- Draw Text Centered ---
     const totalTextHeight = lines.length * lineHeight;
-    // Calculate startY based on new height
-    // Center logic: (Height / 2) - (Block / 2) + offset for icon overlap
-    let startY = (height / 2) - (totalTextHeight / 2) + 20;
+    // Center logic: (Height / 2) - (Block / 2) + offset
+    let startY = (height / 2) - (totalTextHeight / 2) + 30;
 
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], width / 2, startY + (i * lineHeight));
     }
 
     // --- Author ---
-    const authorY = startY + (lines.length * lineHeight) + 40;
+    const authorY = startY + (lines.length * lineHeight) + 30;
     ctx.fillStyle = '#FCD34D'; // Gold
-    ctx.font = `bold 40px 'Quicksand', sans-serif`;
+    ctx.font = `bold 35px 'Quicksand', sans-serif`;
     ctx.fillText(`- ${author}`, width / 2, authorY);
 
     // Convert to Data URL

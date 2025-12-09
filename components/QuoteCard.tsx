@@ -17,7 +17,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onSha
       <div className="aspect-[1.91/1] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
         
         {/* Content Area */}
-        <div className="w-full h-full flex items-center justify-center">
+        <div className="w-full h-full flex items-center justify-center p-1">
           {loading ? (
             <div className="flex flex-col items-center justify-center space-y-4">
               <Loader2 className="w-10 h-10 text-white/80 animate-spin" />
@@ -27,7 +27,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onSha
              <img 
                src={quote.imageUrl} 
                alt={`${quote.text} - ${quote.author}`}
-               className="w-full h-full object-contain" // Changed to contain to ensure full image visibility
+               className="max-w-full max-h-full object-contain" 
              />
           ) : (
             // Fallback text view
