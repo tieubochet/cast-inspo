@@ -207,7 +207,7 @@ const App: React.FC = () => {
     
     // IMPORTANT: Put the App URL in the text body.
     // This ensures it's clickable and doesn't conflict with the image embed.
-    const defaultText = `My daily inspiration via CastInspo ✨\n\nFind your inspiration and claim your daily rewards\n${appUrl}`;
+    const defaultText = `${appUrl}`;
     
     // 1. Prepare File
     let publicImageUrl: string | null = null;
