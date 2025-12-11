@@ -11,7 +11,7 @@ import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
+const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c" as const;
 const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
 
 // Get API Key from Environment Variable (Vercel)
