@@ -375,14 +375,6 @@ const App: React.FC = () => {
     // Mobile container constraint
     <div className="w-full max-w-[393px] min-h-screen bg-zinc-950 text-slate-100 flex flex-col font-sans relative overflow-hidden shadow-2xl mx-auto">
       
-      <Toast message={toastMessage} type={toastType} />
-
-      <ClaimSuccessModal 
-        isOpen={showSuccessModal} 
-        onClose={() => setShowSuccessModal(false)} 
-        onShare={handleRewardShare}
-      />
-
       {/* Background Ambience - Colorful Moving Gradient & Blobs */}
       <div className="absolute inset-0 z-0">
         {/* Base animated gradient */}
@@ -430,6 +422,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
               <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
                 <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint Your Daily Quote</h2>
+                <p className="text-zinc-300 mb-6">Turn your favorite quotes into collectibles.</p>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
@@ -439,6 +432,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
                <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
                 <h2 className="text-2xl font-bold mb-2 text-orange-400">Rewards System</h2>
+                <p className="text-zinc-300 mb-6">Earn points and unlock exclusive features.</p>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
@@ -447,6 +441,14 @@ const App: React.FC = () => {
         
         <Footer activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
+
+      <ClaimSuccessModal 
+        isOpen={showSuccessModal} 
+        onClose={() => setShowSuccessModal(false)} 
+        onShare={handleRewardShare}
+      />
+
+      <Toast message={toastMessage} type={toastType} />
     </div>
   );
 };
