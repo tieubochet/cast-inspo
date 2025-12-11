@@ -232,7 +232,7 @@ const App: React.FC = () => {
       // This ensures Warpcast sees a valid "Text + 1 Embed" structure, while still parsing the link in text as a Frame.
       
       let shareText = `"${currentQuote.text}" - ${currentQuote.author}`;
-      const suffix = `\n\nvia CastInspo ✨\n${appUrl}`; 
+      const suffix = `\n\nvia CastInspo ✨\n\n ${appUrl}`; 
       
       // Calculate max length. Farcaster limit is ~320 bytes.
       // Suffix length with URL is roughly 80-90 chars.
