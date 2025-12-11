@@ -203,7 +203,7 @@ const App: React.FC = () => {
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
     // Default text ensures the composer isn't empty if image fails
-    const defaultText = `My daily inspiration via CastInspo ✨`;
+    const defaultText = `Daily vibes via CastInspo ✨ Come for the inspiration, stay for the rewards!`;
     
     // 1. Prepare File
     let publicImageUrl: string | null = null;
@@ -402,8 +402,7 @@ const App: React.FC = () => {
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
               <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
-                <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint Your Daily Quote</h2>
-                <p className="text-zinc-300 mb-6">Turn your favorite quotes into collectibles.</p>
+                <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint NFT</h2>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
@@ -413,7 +412,6 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
                <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
                 <h2 className="text-2xl font-bold mb-2 text-orange-400">Rewards System</h2>
-                <p className="text-zinc-300 mb-6">Earn points and unlock exclusive features.</p>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
