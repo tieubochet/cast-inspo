@@ -6,6 +6,7 @@ import { base } from 'viem/chains';
 import Header from './components/Header';
 import QuoteCard from './components/QuoteCard';
 import Footer from './components/Footer';
+import ClaimSuccessModal from './components/ClaimSuccessModal';
 import { generateQuote } from './services/Service';
 import { Quote, Tab, FarcasterUser } from './types';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -76,7 +77,7 @@ const Toast = ({ message, type }: { message: string | null, type: 'loading' | 's
   const icon = type === 'loading' ? <Loader2 size={16} className="animate-spin" /> : type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />;
 
   return (
-    <div className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full backdrop-blur-md text-white text-sm font-medium shadow-xl flex items-center gap-2 z-50 transition-all duration-300 ${bgClass}`}>
+    <div className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full backdrop-blur-md text-white text-sm font-medium shadow-xl flex items-center gap-2 z-[90] transition-all duration-300 ${bgClass}`}>
       {icon}
       <span>{message}</span>
     </div>
@@ -94,6 +95,7 @@ const App: React.FC = () => {
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [isClaiming, setIsClaiming] = useState<boolean>(false);
   const [hasClaimedToday, setHasClaimedToday] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -203,7 +205,7 @@ const App: React.FC = () => {
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
     // Default text ensures the composer isn't empty if image fails
-    const defaultText = `Daily vibes via CastInspo ✨ Come for the inspiration, stay for the rewards!`;
+    const defaultText = ``;
     
     // 1. Prepare File
     let publicImageUrl: string | null = null;
@@ -247,6 +249,22 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Failed to open URL:", err);
       showToast("Failed to open Warpcast", "error");
+    }
+  };
+
+  // Specific share handler for the Claim Rewards Success Modal
+  const handleRewardShare = async () => {
+    try {
+      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
+      const encodedText = encodeURIComponent(text);
+      const encodedEmbed = encodeURIComponent(MINI_APP_URL);
+      
+      const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
+      
+      await sdk.actions.openUrl(warpcastUrl);
+      setShowSuccessModal(false); // Close modal after sharing
+    } catch (err) {
+      console.error("Failed to open URL:", err);
     }
   };
 
@@ -311,6 +329,9 @@ const App: React.FC = () => {
       setCanClaim(false);
 
       showToast("Claimed successfully!", "success");
+      
+      // Show Success Modal
+      setShowSuccessModal(true);
 
       // Re-check status after a delay
       setTimeout(() => {
@@ -355,6 +376,12 @@ const App: React.FC = () => {
     <div className="w-full max-w-[393px] min-h-screen bg-zinc-950 text-slate-100 flex flex-col font-sans relative overflow-hidden shadow-2xl mx-auto">
       
       <Toast message={toastMessage} type={toastType} />
+
+      <ClaimSuccessModal 
+        isOpen={showSuccessModal} 
+        onClose={() => setShowSuccessModal(false)} 
+        onShare={handleRewardShare}
+      />
 
       {/* Background Ambience - Colorful Moving Gradient & Blobs */}
       <div className="absolute inset-0 z-0">
@@ -402,7 +429,7 @@ const App: React.FC = () => {
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
               <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
-                <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint NFT</h2>
+                <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint Your Daily Quote</h2>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
