@@ -197,56 +197,66 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     if (!currentQuote || !currentQuote.imageUrl) return;
-    
+
     // Unlock claim logic immediately
     if (!hasClaimedToday) {
       setCanClaim(true);
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
-    
-    // IMPORTANT: Put the App URL in the text body.
-    // This ensures it's clickable and doesn't conflict with the image embed.
-    const defaultText = `${appUrl}`;
-    
-    // 1. Prepare File
+
+    // 1. Prepare File (Upload Image)
     let publicImageUrl: string | null = null;
-    
+
     try {
       if (IMGBB_API_KEY) {
-        showToast("Uploading image...", "loading", 0); 
+        showToast("Uploading image...", "loading", 0);
         const blob = dataURItoBlob(currentQuote.imageUrl);
         publicImageUrl = await uploadToImgBB(blob);
         showToast("Opening Warpcast...", "success");
       } else {
-        console.warn("No ImgBB API Key found. Sharing link only.");
+        console.warn("No ImgBB API Key found.");
         showToast("Opening Warpcast (No Image)...", "success");
       }
     } catch (e: any) {
       console.error("Upload failed", e);
-      // Fallback: Continue without image
       showToast("Image upload failed. Sharing link only.", "error");
-    } finally {
-      // Clear persistent loading toast if it exists
-      if (!publicImageUrl && !toastMessage) { 
-        // Logic handled inside catch/try blocks mainly, but ensures cleanup
-      }
     }
 
     try {
-      // Construct Warpcast URL
-      const encodedText = encodeURIComponent(defaultText);
+      // 2. Construct Text
+      // We want to avoid putting URLs in the text to prevent double-embed confusion,
+      // and we want to explicitly embed the Image and the Frame URL.
+      // Max text length for Farcaster is 320 bytes.
       
+      let shareText = `"${currentQuote.text}" - ${currentQuote.author}`;
+      const suffix = `\n\nvia CastInspo ✨`;
+      
+      // Simple truncation to ensure we have room
+      // Reserve ~50 chars for suffix
+      const maxLength = 300 - suffix.length;
+      
+      if (shareText.length > maxLength) {
+        shareText = shareText.substring(0, maxLength - 3) + "...";
+      }
+      
+      shareText += suffix;
+
+      const encodedText = encodeURIComponent(shareText);
+      const encodedAppUrl = encodeURIComponent(appUrl);
+
       let warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
 
-      // Only add image embed if upload was successful
+      // 3. Add Embeds
+      // If we have an image, we embed it FIRST so it shows up big.
+      // Then we embed the App URL (Frame) so the button appears.
+      
       if (publicImageUrl) {
         const encodedImage = encodeURIComponent(publicImageUrl);
         warpcastUrl += `&embeds[]=${encodedImage}`;
+        warpcastUrl += `&embeds[]=${encodedAppUrl}`;
       } else {
-        // If NO image, we can safely embed the App URL to get the frame preview
-        // although it is already in the text, explicit embed guarantees the frame renders if text parsing fails
-        const encodedAppUrl = encodeURIComponent(appUrl);
+        // If no image, just embed the App URL
         warpcastUrl += `&embeds[]=${encodedAppUrl}`;
       }
 
@@ -261,7 +271,7 @@ const App: React.FC = () => {
   // Specific share handler for the Claim Rewards Success Modal
   const handleRewardShare = async () => {
     try {
-      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.\n${MINI_APP_URL}`;
+      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
       const encodedText = encodeURIComponent(text);
       // For reward share, we want the Frame preview, so we embed the URL
       const encodedEmbed = encodeURIComponent(MINI_APP_URL);
