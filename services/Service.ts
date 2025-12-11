@@ -30,16 +30,16 @@ export const generateQuote = async (specificIndex?: number): Promise<Quote> => {
 };
 
 /**
- * Generates a standard Social Card image (1.91:1 Aspect Ratio - 1200x630)
- * This fits perfectly in Farcaster/Twitter feeds without cropping.
+ * Generates a standard Social Card image (600x400 - 3:2 Aspect Ratio)
+ * Padding: 10% Horizontal, 15% Vertical
  */
 const createQuoteImage = (text: string, author: string): Promise<string> => {
   return new Promise((resolve) => {
     // Create an off-screen canvas
     const canvas = document.createElement('canvas');
-    // Standard OpenGraph Dimensions (1.91:1)
-    const width = 1200;
-    const height = 630;
+    // Dimensions: 600x400
+    const width = 600;
+    const height = 400;
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -59,65 +59,96 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
 
     // --- Decoration (Icon) ---
-    const iconY = 70; // Moved up slightly to make room
+    // Scaled down icon at top
+    const iconY = 45; 
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(width / 2, iconY, 30, 0, Math.PI * 2);
+    ctx.arc(width / 2, iconY, 20, 0, Math.PI * 2);
     ctx.fill();
     
     // Quote Icon inside circle
     ctx.fillStyle = '#6A3CFF';
-    ctx.font = 'bold 40px sans-serif';
+    ctx.font = 'bold 26px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('“', width / 2, iconY + 18);
+    ctx.fillText('“', width / 2, iconY + 12);
 
 
     // --- Text Configuration ---
-    // Reduced font size and increased margins for better mobile safety
-    const fontSize = 40; 
-    const lineHeight = 55;
-    const fontFamily = "'Arsenal', sans-serif";
-    const textColor = '#ffffff';
+    // Dynamic font sizing to fit within padding
+    // Padding X: 10% = 60px -> Max Width = 480px
+    // Padding Y: 15% = 60px -> Max Height = 280px (approx)
     
-    ctx.fillStyle = textColor;
+    const paddingX = width * 0.10;
+    // We aim for vertical content to be roughly centralized, respecting a "safe area" 
+    // but the constraint is "always fits".
+    const safeHeight = height * 0.70; // 100% - 15% top - 15% bottom
+
+    const maxWidth = width - (paddingX * 2); 
+    const fontFamily = "'Arsenal', sans-serif";
+    const authorFontFamily = "'Quicksand', sans-serif";
+    
+    let fontSize = 36; // Start slightly smaller than before
+    let lineHeight = 0;
+    let authorFontSize = 0;
+    let lines: string[] = [];
+    let fits = false;
+
+    // Loop to find fitting font size
+    while (fontSize > 10) {
+      ctx.font = `italic ${fontSize}px ${fontFamily}`;
+      lineHeight = fontSize * 1.35;
+      authorFontSize = Math.max(14, fontSize * 0.65); // Author smaller than text
+
+      const words = text.split(' ');
+      let line = '';
+      lines = [];
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          lines.push(line);
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+
+      const totalHeight = (lines.length * lineHeight) + 20 + authorFontSize; // 20 is gap
+
+      if (totalHeight <= safeHeight) {
+        fits = true;
+        break;
+      }
+      fontSize -= 2;
+    }
+
+    if (!fits) {
+        // Fallback for extremely long text (shouldn't happen with standard quotes)
+        fontSize = 12;
+    }
+
+    // --- Draw Content ---
+    const totalContentHeight = (lines.length * lineHeight) + 20 + authorFontSize;
+    const blockTopY = (height / 2) - (totalContentHeight / 2);
+
+    ctx.fillStyle = '#ffffff';
     ctx.font = `italic ${fontSize}px ${fontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // --- Wrap Text Logic ---
-    // Increased padding: width - 320 means 160px padding on each side
-    const maxWidth = width - 320; 
-    const words = text.split(' ');
-    let line = '';
-    const lines = [];
-
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        lines.push(line);
-        line = words[n] + ' ';
-      } else {
-        line = testLine;
-      }
-    }
-    lines.push(line);
-
-    // --- Draw Text Centered ---
-    const totalTextHeight = lines.length * lineHeight;
-    // Center logic: (Height / 2) - (Block / 2) + offset
-    let startY = (height / 2) - (totalTextHeight / 2) + 20;
-
     for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], width / 2, startY + (i * lineHeight));
+        // Line position: BlockTop + (LineIndex * LH) + Half LH
+        ctx.fillText(lines[i], width / 2, blockTopY + (i * lineHeight) + (lineHeight / 2));
     }
 
     // --- Author ---
-    const authorY = startY + (lines.length * lineHeight) + 25;
+    const authorY = blockTopY + (lines.length * lineHeight) + 20 + (authorFontSize / 2);
     ctx.fillStyle = '#FCD34D'; // Gold
-    ctx.font = `bold 30px 'Quicksand', sans-serif`;
+    ctx.font = `bold ${authorFontSize}px ${authorFontFamily}`;
     ctx.fillText(`- ${author}`, width / 2, authorY);
 
     // Convert to Data URL
