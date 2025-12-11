@@ -204,8 +204,10 @@ const App: React.FC = () => {
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
-    // Default text ensures the composer isn't empty if image fails
-    const defaultText = ``;
+    
+    // IMPORTANT: Put the App URL in the text body.
+    // This ensures it's clickable and doesn't conflict with the image embed.
+    const defaultText = `My daily inspiration via CastInspo ✨\n\nFind your inspiration and claim your daily rewards\n${appUrl}`;
     
     // 1. Prepare File
     let publicImageUrl: string | null = null;
@@ -234,14 +236,18 @@ const App: React.FC = () => {
     try {
       // Construct Warpcast URL
       const encodedText = encodeURIComponent(defaultText);
-      const encodedAppUrl = encodeURIComponent(appUrl);
       
-      let warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedAppUrl}`;
+      let warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
 
       // Only add image embed if upload was successful
       if (publicImageUrl) {
         const encodedImage = encodeURIComponent(publicImageUrl);
         warpcastUrl += `&embeds[]=${encodedImage}`;
+      } else {
+        // If NO image, we can safely embed the App URL to get the frame preview
+        // although it is already in the text, explicit embed guarantees the frame renders if text parsing fails
+        const encodedAppUrl = encodeURIComponent(appUrl);
+        warpcastUrl += `&embeds[]=${encodedAppUrl}`;
       }
 
       await sdk.actions.openUrl(warpcastUrl);
@@ -255,8 +261,9 @@ const App: React.FC = () => {
   // Specific share handler for the Claim Rewards Success Modal
   const handleRewardShare = async () => {
     try {
-      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
+      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.\n${MINI_APP_URL}`;
       const encodedText = encodeURIComponent(text);
+      // For reward share, we want the Frame preview, so we embed the URL
       const encodedEmbed = encodeURIComponent(MINI_APP_URL);
       
       const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
