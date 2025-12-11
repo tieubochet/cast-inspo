@@ -31,7 +31,7 @@ export const generateQuote = async (specificIndex?: number): Promise<Quote> => {
 
 /**
  * Generates a standard Social Card image (600x400 - 3:2 Aspect Ratio)
- * Padding: 10% Horizontal, 15% Vertical
+ * Padding: 13% Horizontal, 15% Vertical
  */
 const createQuoteImage = (text: string, author: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -55,7 +55,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
 
     // --- Border (3px) ---
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = '#FCD34D';
     ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
 
     // --- Decoration (Icon) ---
@@ -76,19 +76,20 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
 
     // --- Text Configuration ---
     // Dynamic font sizing to fit within padding
-    // Padding X: 10% = 60px -> Max Width = 480px
-    // Padding Y: 15% = 60px -> Max Height = 280px (approx)
+    // Padding X: 13% = 78px -> Max Width = 600 - 156 = 444px
+    // Padding Y: 15% = 60px -> Max Height = 400 - 120 = 280px
     
-    const paddingX = width * 0.10;
-    // We aim for vertical content to be roughly centralized, respecting a "safe area" 
-    // but the constraint is "always fits".
-    const safeHeight = height * 0.70; // 100% - 15% top - 15% bottom
-
+    const paddingX = width * 0.13;
+    const paddingY = height * 0.15;
+    
+    // We aim for vertical content to be roughly centralized within the safe area
+    const safeHeight = height - (paddingY * 2);
     const maxWidth = width - (paddingX * 2); 
+    
     const fontFamily = "'Arsenal', sans-serif";
     const authorFontFamily = "'Quicksand', sans-serif";
     
-    let fontSize = 36; // Start slightly smaller than before
+    let fontSize = 42; // Start larger to see if it fits
     let lineHeight = 0;
     let authorFontSize = 0;
     let lines: string[] = [];
@@ -98,7 +99,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     while (fontSize > 10) {
       ctx.font = `italic ${fontSize}px ${fontFamily}`;
       lineHeight = fontSize * 1.35;
-      authorFontSize = Math.max(14, fontSize * 0.65); // Author smaller than text
+      authorFontSize = Math.max(14, fontSize * 0.60); // Author scaled relative to text
 
       const words = text.split(' ');
       let line = '';
@@ -127,7 +128,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     }
 
     if (!fits) {
-        // Fallback for extremely long text (shouldn't happen with standard quotes)
+        // Fallback for extremely long text
         fontSize = 12;
     }
 
@@ -141,7 +142,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     ctx.textBaseline = 'middle';
 
     for (let i = 0; i < lines.length; i++) {
-        // Line position: BlockTop + (LineIndex * LH) + Half LH
+        // Line position
         ctx.fillText(lines[i], width / 2, blockTopY + (i * lineHeight) + (lineHeight / 2));
     }
 
