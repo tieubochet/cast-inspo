@@ -225,8 +225,8 @@ const App: React.FC = () => {
       // 1. Construct Text
       // IMPORTANT: Do NOT include the URL in the text body if we are embedding it separately.
       // Including it in both places causes Warpcast mobile to disable the Cast button due to embed conflicts.
-      let shareText = `"${currentQuote.text}" - ${currentQuote.author}`;
-      const suffix = `\n\nvia CastInspo ✨`; 
+      let shareText = `Daily vibes via CastInspo ✨ Come for the inspiration, stay for the rewards!`;
+      const suffix = ``; 
       
       // Truncate text to be safe (Farcaster limit ~320 bytes, keeping it under 280 chars to be safe)
       if (shareText.length > 280) {
@@ -261,7 +261,7 @@ const App: React.FC = () => {
   // Specific share handler for the Claim Rewards Success Modal
   const handleRewardShare = async () => {
     try {
-      const text = `I just claimed my daily reward on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
+      const text = `I just claimed 2k $teeboo_hl on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
       const encodedText = encodeURIComponent(text);
       // For reward share, we want the Frame preview, so we embed the URL
       const encodedEmbed = encodeURIComponent(MINI_APP_URL);
@@ -429,7 +429,6 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
               <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
                 <h2 className="text-2xl font-bold mb-2 text-emerald-400">Mint Your Daily Quote</h2>
-                <p className="text-zinc-300 mb-6">Turn your favorite quotes into collectibles.</p>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
@@ -439,7 +438,6 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center w-full">
                <div className="p-6 bg-zinc-800/40 backdrop-blur-md rounded-2xl border border-zinc-700/50 w-full shadow-lg">
                 <h2 className="text-2xl font-bold mb-2 text-orange-400">Rewards System</h2>
-                <p className="text-zinc-300 mb-6">Earn points and unlock exclusive features.</p>
                 <button className="bg-zinc-700/50 text-zinc-400 px-6 py-3 rounded-full cursor-not-allowed w-full border border-zinc-600/50">Coming Soon</button>
               </div>
             </div>
