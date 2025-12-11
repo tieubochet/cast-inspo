@@ -13,8 +13,8 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 const CONTRACT_ADDRESS = "0x99952E86dD355D77fc19EBc167ac93C4514BA7CB" as const;
 const MINI_APP_URL = "https://farcaster.xyz/miniapps/S9xDZOSiOGWl/castinspo";
 
-// 🔴 QUAN TRỌNG: Dán API Key ImgBB của bạn vào đây 🔴
-const IMGBB_API_KEY = "670ba407e859d269efae9c347a50f836"; 
+// Get API Key from Environment Variable (Vercel)
+const IMGBB_API_KEY = (import.meta as any).env.VITE_IMGBB_API_KEY;
 
 // Public Client to read contract state without prompting user
 const publicClient = createPublicClient({
@@ -46,6 +46,10 @@ const dataURItoBlob = (dataURI: string) => {
 
 // Helper to upload image to ImgBB
 const uploadToImgBB = async (imageBlob: Blob): Promise<string> => {
+  if (!IMGBB_API_KEY) {
+    throw new Error("ImgBB API Key is missing. Please set VITE_IMGBB_API_KEY in your environment variables.");
+  }
+
   const formData = new FormData();
   formData.append('image', imageBlob);
   // Optional: Set expiration to auto-delete after 1 week (604800 seconds) to save space/privacy
@@ -222,17 +226,25 @@ const App: React.FC = () => {
 
       await sdk.actions.openUrl(warpcastUrl);
       setToastMessage(null); // Clear toast
-    } catch (e) {
+    } catch (e: any) {
       console.error("Upload failed", e);
-      showToast("Upload failed, trying download...", "error");
+      // More descriptive error message
+      const errMsg = e.message && e.message.includes('API Key is missing') 
+        ? "API Key missing" 
+        : "Upload failed, trying download...";
       
-      // Last Resort: Download file manually if API fails
-      const link = document.createElement('a');
-      link.href = currentQuote.imageUrl;
-      link.download = `castinspo-${currentQuote.id}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      showToast(errMsg, "error");
+      
+      // Only try download fallback if it wasn't a missing API key error
+      if (!e.message || !e.message.includes('API Key is missing')) {
+          // Last Resort: Download file manually if API fails
+          const link = document.createElement('a');
+          link.href = currentQuote.imageUrl;
+          link.download = `castinspo-${currentQuote.id}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
       
       // Just open composer with link
       await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(appUrl)}`);

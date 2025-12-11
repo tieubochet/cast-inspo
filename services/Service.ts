@@ -53,11 +53,6 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     ctx.fillStyle = '#6A3CFF'; // Deep Purple
     ctx.fillRect(0, 0, width, height);
 
-    // --- Border (3px) ---
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#FCD34D';
-    ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
-
     // --- Decoration (Icon) ---
     // Scaled down icon at top
     const iconY = 45; 
@@ -89,7 +84,7 @@ const createQuoteImage = (text: string, author: string): Promise<string> => {
     const fontFamily = "'Arsenal', sans-serif";
     const authorFontFamily = "'Quicksand', sans-serif";
     
-    let fontSize = 42; // Start larger to see if it fits
+    let fontSize = 36; // Start smaller (was 42)
     let lineHeight = 0;
     let authorFontSize = 0;
     let lines: string[] = [];

@@ -14,7 +14,7 @@ const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onSha
   return (
     <div className="w-full flex flex-col items-center justify-center pt-2 pb-6 flex-grow gap-6">
       {/* Quote Display Container - Updated to 3:2 Aspect Ratio (600x400) */}
-      <div className="aspect-[3/2] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
+      <div className="aspect-[3/2] w-full relative rounded-[10px] shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF]">
         
         {/* Content Area - Increased padding to p-3 for better safe area on mobile */}
         <div className="w-full h-full flex items-center justify-center p-3">
