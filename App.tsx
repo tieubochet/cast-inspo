@@ -261,7 +261,7 @@ const App: React.FC = () => {
   // Specific share handler for the Claim Rewards Success Modal
   const handleRewardShare = async () => {
     try {
-      const text = `I just claimed 2k $teeboo_hl on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
+      const text = `I just claimed 2k $teeboobased on CastInspo! 🎁 Check in daily to build your streak and earn rewards on Base.`;
       const encodedText = encodeURIComponent(text);
       // For reward share, we want the Frame preview, so we embed the URL
       const encodedEmbed = encodeURIComponent(MINI_APP_URL);
