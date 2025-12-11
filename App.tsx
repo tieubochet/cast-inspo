@@ -47,12 +47,12 @@ const dataURItoBlob = (dataURI: string) => {
 // Helper to upload image to ImgBB
 const uploadToImgBB = async (imageBlob: Blob): Promise<string> => {
   if (!IMGBB_API_KEY) {
-    throw new Error("ImgBB API Key is missing. Please set VITE_IMGBB_API_KEY in your environment variables.");
+    throw new Error("ImgBB API Key is missing.");
   }
 
   const formData = new FormData();
   formData.append('image', imageBlob);
-  // Optional: Set expiration to auto-delete after 1 week (604800 seconds) to save space/privacy
+  // Optional: Set expiration to auto-delete after 1 week
   // formData.append('expiration', '604800'); 
 
   const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
@@ -202,52 +202,51 @@ const App: React.FC = () => {
     }
 
     const appUrl = `${MINI_APP_URL}?q=${currentQuote.id}`;
-    // Removed shareText to clean up the post as requested
+    // Default text ensures the composer isn't empty if image fails
+    const defaultText = `My daily inspiration via CastInspo ✨`;
     
     // 1. Prepare File
-    const blob = dataURItoBlob(currentQuote.imageUrl);
-
-    // 2. Universal Strategy: Upload & Embed
-    showToast("Uploading image...", "loading", 0); // Persistent toast
+    let publicImageUrl: string | null = null;
+    
+    try {
+      if (IMGBB_API_KEY) {
+        showToast("Uploading image...", "loading", 0); 
+        const blob = dataURItoBlob(currentQuote.imageUrl);
+        publicImageUrl = await uploadToImgBB(blob);
+        showToast("Opening Warpcast...", "success");
+      } else {
+        console.warn("No ImgBB API Key found. Sharing link only.");
+        showToast("Opening Warpcast (No Image)...", "success");
+      }
+    } catch (e: any) {
+      console.error("Upload failed", e);
+      // Fallback: Continue without image
+      showToast("Image upload failed. Sharing link only.", "error");
+    } finally {
+      // Clear persistent loading toast if it exists
+      if (!publicImageUrl && !toastMessage) { 
+        // Logic handled inside catch/try blocks mainly, but ensures cleanup
+      }
+    }
 
     try {
-      // Upload to ImgBB
-      const publicImageUrl = await uploadToImgBB(blob);
-      
-      showToast("Opening Warpcast...", "success");
-
-      // Construct Warpcast URL with BOTH the image embed and the app frame link
-      // Notice: `text` param is removed or empty
-      const encodedImage = encodeURIComponent(publicImageUrl);
+      // Construct Warpcast URL
+      const encodedText = encodeURIComponent(defaultText);
       const encodedAppUrl = encodeURIComponent(appUrl);
       
-      // Syntax: embeds[]=URL1&embeds[]=URL2
-      const warpcastUrl = `https://warpcast.com/~/compose?embeds[]=${encodedImage}&embeds[]=${encodedAppUrl}`;
+      let warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedAppUrl}`;
+
+      // Only add image embed if upload was successful
+      if (publicImageUrl) {
+        const encodedImage = encodeURIComponent(publicImageUrl);
+        warpcastUrl += `&embeds[]=${encodedImage}`;
+      }
 
       await sdk.actions.openUrl(warpcastUrl);
       setToastMessage(null); // Clear toast
-    } catch (e: any) {
-      console.error("Upload failed", e);
-      // More descriptive error message
-      const errMsg = e.message && e.message.includes('API Key is missing') 
-        ? "API Key missing" 
-        : "Upload failed, trying download...";
-      
-      showToast(errMsg, "error");
-      
-      // Only try download fallback if it wasn't a missing API key error
-      if (!e.message || !e.message.includes('API Key is missing')) {
-          // Last Resort: Download file manually if API fails
-          const link = document.createElement('a');
-          link.href = currentQuote.imageUrl;
-          link.download = `castinspo-${currentQuote.id}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-      }
-      
-      // Just open composer with link
-      await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(appUrl)}`);
+    } catch (err) {
+      console.error("Failed to open URL:", err);
+      showToast("Failed to open Warpcast", "error");
     }
   };
 
