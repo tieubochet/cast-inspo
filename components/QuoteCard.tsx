@@ -1,157 +1,73 @@
 
-import { Quote } from "../types";
-import quotesData from "../quotes.json";
+import React from 'react';
+import { Quote } from '../types';
+import { Share2, RefreshCw, Loader2 } from 'lucide-react';
 
-export const generateQuote = async (specificIndex?: number): Promise<Quote> => {
-  // 1. Determine which quote to use
-  // If specificIndex is provided and valid, use it. Otherwise, random.
-  let index = specificIndex;
-  
-  if (index === undefined || index === null || isNaN(index) || index < 0 || index >= quotesData.length) {
-    index = Math.floor(Math.random() * quotesData.length);
-  }
+interface QuoteCardProps {
+  quote: Quote | null;
+  loading: boolean;
+  onNewQuote: () => void;
+  onShare: () => void;
+}
 
-  const rawQuote = quotesData[index];
-  
-  // 2. Generate an image for this quote
-  let imageUrl: string | undefined = undefined;
-  try {
-    imageUrl = await createQuoteImage(rawQuote.content, rawQuote.author);
-  } catch (e) {
-    console.error("Failed to generate quote image", e);
-  }
+const QuoteCard: React.FC<QuoteCardProps> = ({ quote, loading, onNewQuote, onShare }) => {
+  return (
+    <div className="w-full flex flex-col items-center justify-center pt-2 pb-6 flex-grow gap-6">
+      {/* Quote Display Container - Updated to 3:2 Aspect Ratio (600x400) */}
+      <div className="aspect-[3/2] w-full relative rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-500 bg-[#6A3CFF] border-[3px] border-white">
+        
+        {/* Content Area - Increased padding to p-3 for better safe area on mobile */}
+        <div className="w-full h-full flex items-center justify-center p-3">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="w-10 h-10 text-white/80 animate-spin" />
+              <p className="text-white/80 text-xs font-medium uppercase tracking-widest">Generating...</p>
+            </div>
+          ) : quote?.imageUrl ? (
+             <img 
+               src={quote.imageUrl} 
+               alt={`${quote.text} - ${quote.author}`}
+               className="max-w-full max-h-full object-contain" 
+             />
+          ) : (
+            // Fallback text view
+            <div className="p-4 md:p-8 text-center flex flex-col items-center justify-center h-full">
+               <div className="bg-white text-[#6A3CFF] w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center mb-4 shadow-md">
+                 <span className="text-2xl md:text-4xl font-sans font-bold leading-none mt-1">“</span>
+               </div>
+              <p className="text-xl md:text-3xl text-white leading-relaxed italic mb-4 drop-shadow-sm font-['Arsenal'] px-4">
+                {quote?.text}
+              </p>
+              <p className="text-amber-300 font-bold text-lg md:text-xl tracking-wide font-['Quicksand']">
+                - {quote?.author}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
-  return {
-    id: index,
-    text: rawQuote.content,
-    author: rawQuote.author,
-    imageUrl: imageUrl
-  };
+      {/* Action Buttons - Outside the card */}
+      <div className="w-full grid grid-cols-2 gap-4 px-2">
+        <button
+          onClick={onNewQuote}
+          disabled={loading}
+          className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-200 font-semibold py-3.5 px-4 rounded-xl transition-all disabled:opacity-50 text-sm border border-zinc-700/50 shadow-lg"
+        >
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+          New Quote
+        </button>
+        
+        <button
+          onClick={onShare}
+          disabled={loading || !quote}
+          className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 text-sm"
+        >
+          <Share2 size={18} />
+          Share
+        </button>
+      </div>
+    </div>
+  );
 };
 
-/**
- * Generates a standard Social Card image (600x400 - 3:2 Aspect Ratio)
- * Padding: 10% Horizontal, 15% Vertical
- */
-const createQuoteImage = (text: string, author: string): Promise<string> => {
-  return new Promise((resolve) => {
-    // Create an off-screen canvas
-    const canvas = document.createElement('canvas');
-    // Dimensions: 600x400
-    const width = 600;
-    const height = 400;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      resolve('');
-      return;
-    }
-
-    // --- Background ---
-    ctx.fillStyle = '#6A3CFF'; // Deep Purple
-    ctx.fillRect(0, 0, width, height);
-
-    // --- Border (3px) ---
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ffffff';
-    ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
-
-    // --- Decoration (Icon) ---
-    // Scaled down icon at top
-    const iconY = 45; 
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(width / 2, iconY, 20, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Quote Icon inside circle
-    ctx.fillStyle = '#6A3CFF';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('“', width / 2, iconY + 12);
-
-
-    // --- Text Configuration ---
-    // Dynamic font sizing to fit within padding
-    // Padding X: 10% = 60px -> Max Width = 480px
-    // Padding Y: 15% = 60px -> Max Height = 280px (approx)
-    
-    const paddingX = width * 0.10;
-    // We aim for vertical content to be roughly centralized, respecting a "safe area" 
-    // but the constraint is "always fits".
-    const safeHeight = height * 0.70; // 100% - 15% top - 15% bottom
-
-    const maxWidth = width - (paddingX * 2); 
-    const fontFamily = "'Arsenal', sans-serif";
-    const authorFontFamily = "'Quicksand', sans-serif";
-    
-    let fontSize = 36; // Start slightly smaller than before
-    let lineHeight = 0;
-    let authorFontSize = 0;
-    let lines: string[] = [];
-    let fits = false;
-
-    // Loop to find fitting font size
-    while (fontSize > 10) {
-      ctx.font = `italic ${fontSize}px ${fontFamily}`;
-      lineHeight = fontSize * 1.35;
-      authorFontSize = Math.max(14, fontSize * 0.65); // Author smaller than text
-
-      const words = text.split(' ');
-      let line = '';
-      lines = [];
-
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          lines.push(line);
-          line = words[n] + ' ';
-        } else {
-          line = testLine;
-        }
-      }
-      lines.push(line);
-
-      const totalHeight = (lines.length * lineHeight) + 20 + authorFontSize; // 20 is gap
-
-      if (totalHeight <= safeHeight) {
-        fits = true;
-        break;
-      }
-      fontSize -= 2;
-    }
-
-    if (!fits) {
-        // Fallback for extremely long text (shouldn't happen with standard quotes)
-        fontSize = 12;
-    }
-
-    // --- Draw Content ---
-    const totalContentHeight = (lines.length * lineHeight) + 20 + authorFontSize;
-    const blockTopY = (height / 2) - (totalContentHeight / 2);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `italic ${fontSize}px ${fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    for (let i = 0; i < lines.length; i++) {
-        // Line position: BlockTop + (LineIndex * LH) + Half LH
-        ctx.fillText(lines[i], width / 2, blockTopY + (i * lineHeight) + (lineHeight / 2));
-    }
-
-    // --- Author ---
-    const authorY = blockTopY + (lines.length * lineHeight) + 20 + (authorFontSize / 2);
-    ctx.fillStyle = '#FCD34D'; // Gold
-    ctx.font = `bold ${authorFontSize}px ${authorFontFamily}`;
-    ctx.fillText(`- ${author}`, width / 2, authorY);
-
-    // Convert to Data URL
-    resolve(canvas.toDataURL('image/png'));
-  });
-};
+export default QuoteCard;
