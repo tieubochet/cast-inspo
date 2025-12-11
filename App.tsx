@@ -225,40 +225,36 @@ const App: React.FC = () => {
 
     try {
       // 2. Construct Text
-      // We want to avoid putting URLs in the text to prevent double-embed confusion,
-      // and we want to explicitly embed the Image and the Frame URL.
-      // Max text length for Farcaster is 320 bytes.
+      // STRATEGY CHANGE: 
+      // To prevent the "Disabled Cast Button" issue on mobile, we will:
+      // - Put the Mini App URL inside the TEXT body.
+      // - ONLY embed the Image in the embeds array.
+      // This ensures Warpcast sees a valid "Text + 1 Embed" structure, while still parsing the link in text as a Frame.
       
       let shareText = `"${currentQuote.text}" - ${currentQuote.author}`;
-      const suffix = `\n\nvia CastInspo ✨`;
+      const suffix = `\n\nvia CastInspo ✨\n${appUrl}`; 
       
-      // Simple truncation to ensure we have room
-      // Reserve ~50 chars for suffix
-      const maxLength = 300 - suffix.length;
+      // Calculate max length. Farcaster limit is ~320 bytes.
+      // Suffix length with URL is roughly 80-90 chars.
+      const maxQuoteLength = 300 - suffix.length;
       
-      if (shareText.length > maxLength) {
-        shareText = shareText.substring(0, maxLength - 3) + "...";
+      if (shareText.length > maxQuoteLength) {
+        shareText = shareText.substring(0, maxQuoteLength - 3) + "...";
       }
       
       shareText += suffix;
 
       const encodedText = encodeURIComponent(shareText);
-      const encodedAppUrl = encodeURIComponent(appUrl);
-
       let warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}`;
 
       // 3. Add Embeds
-      // If we have an image, we embed it FIRST so it shows up big.
-      // Then we embed the App URL (Frame) so the button appears.
-      
       if (publicImageUrl) {
+        // ONLY embed the image explicitly. 
+        // The App URL is in the text, Warpcast will handle it.
         const encodedImage = encodeURIComponent(publicImageUrl);
         warpcastUrl += `&embeds[]=${encodedImage}`;
-        warpcastUrl += `&embeds[]=${encodedAppUrl}`;
-      } else {
-        // If no image, just embed the App URL
-        warpcastUrl += `&embeds[]=${encodedAppUrl}`;
       }
+      // If no image, we just leave the text (which contains the URL), so it will default to the Frame embed.
 
       await sdk.actions.openUrl(warpcastUrl);
       setToastMessage(null); // Clear toast
