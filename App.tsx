@@ -5,7 +5,7 @@ import {
   getQuoteById, 
   uploadQuoteImageToImgBB,
   generateSharingLink 
-} from './services/Service'; // Đảm bảo bạn đã update Service.ts như bước trước
+} from './services/Service';
 import { Quote, FarcasterUser, Tab } from './types';
 import QuoteCard from './components/QuoteCard';
 import Header from './components/Header';
@@ -14,11 +14,12 @@ import ClaimSuccessModal from './components/ClaimSuccessModal';
 import { createPublicClient, http, parseAbi, encodeFunctionData } from 'viem';
 import { base } from 'viem/chains';
 import { Toaster, toast } from 'sonner';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-const NFT_CONTRACT_ADDRESS = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; // Thay địa chỉ contract NFT của bạn vào đây
+// Đã cập nhật địa chỉ Contract NFT của bạn
+const NFT_CONTRACT_ADDRESS = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
 const CHAIN_ID = 8453; 
 const RPC_URL = "https://mainnet.base.org";
 
@@ -47,12 +48,12 @@ const App: React.FC = () => {
   
   // App State
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME); // State quản lý Tab
+  const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSharing, setIsSharing] = useState<boolean>(false);
   
   // Claim Rewards State
-  const [canClaim, setCanClaim] = useState<boolean>(false); // Kiểm soát nút Claim (Gray/Gold)
+  const [canClaim, setCanClaim] = useState<boolean>(false);
   const [isClaiming, setIsClaiming] = useState<boolean>(false);
   const [hasClaimedToday, setHasClaimedToday] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
@@ -108,7 +109,6 @@ const App: React.FC = () => {
       const isClaimed = Number(lastClaimDayStr) === Number(currentDayStr);
       setHasClaimedToday(isClaimed);
       
-      // Nếu đã claim rồi thì disable nút claim, nếu chưa thì chờ user share mới enable
       if (isClaimed) {
           setCanClaim(false); 
       }
@@ -118,7 +118,6 @@ const App: React.FC = () => {
   }, []);
 
   const checkNftStatus = useCallback(async (address: string) => {
-    if (NFT_CONTRACT_ADDRESS === "0x831e3158f427eb74a7b02Fa40E40daA1a9111568") return;
     try {
       const [supply, balance] = await Promise.all([
         publicClient.readContract({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
@@ -168,7 +167,7 @@ const App: React.FC = () => {
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // LOGIC QUAN TRỌNG: Mở khóa nút Claim ngay khi bấm Share (nếu chưa claim)
+    // Unlock Claim button if not claimed yet
     if (!hasClaimedToday) {
         setCanClaim(true); 
     }
@@ -177,7 +176,6 @@ const App: React.FC = () => {
     showToast("Generating image...", "loading");
 
     try {
-        // Upload ảnh lên ImgBB (dùng hàm từ Service.ts mới)
         let imageUrl: string | undefined;
         try {
             imageUrl = await uploadQuoteImageToImgBB(currentQuote);
@@ -218,7 +216,7 @@ const App: React.FC = () => {
 
       setClaimTxHash(hash as string);
       setHasClaimedToday(true);
-      setCanClaim(false); // Disable nút sau khi claim
+      setCanClaim(false);
       setShowSuccessModal(true);
       showToast("Claimed successfully!", "success");
 
@@ -226,7 +224,7 @@ const App: React.FC = () => {
       console.error("Claim failed:", error);
       if (error.message?.includes("reverted")) {
          showToast("Transaction failed or already claimed.", "error");
-         setHasClaimedToday(true); // Giả định lỗi do đã claim
+         setHasClaimedToday(true);
       } else {
          showToast("Claim failed.", "error");
       }
@@ -238,8 +236,7 @@ const App: React.FC = () => {
   // 3. Handle Mint NFT
   const handleMint = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
-    if (NFT_CONTRACT_ADDRESS === "0x831e3158f427eb74a7b02Fa40E40daA1a9111568") return showToast("Contract not setup", "error");
-
+    
     setIsMintingNFT(true);
     showToast("Minting NFT...", "loading", 0);
 
@@ -259,7 +256,11 @@ const App: React.FC = () => {
       setNftSupply(prev => prev + 1);
     } catch (error: any) {
       console.error("Mint failed:", error);
-      showToast("Mint failed.", "error");
+      if (error.message?.includes('reverted')) {
+          showToast("Mint failed: Sold out or already minted?", "error");
+      } else {
+          showToast("Mint failed.", "error");
+      }
     } finally {
       setIsMintingNFT(false);
     }
@@ -270,36 +271,33 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col relative overflow-hidden font-sans selection:bg-purple-500/30">
       <Toaster position="top-center" theme="dark" toastOptions={{ style: { background: 'rgba(39, 39, 42, 0.9)', border: '1px solid #3f3f46' } }}/>
 
-      {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-[-20%] left-[-20%] w-[70%] h-[70%] bg-purple-900/20 rounded-full blur-[120px] animate-blob"></div>
           <div className="absolute bottom-[-20%] right-[-20%] w-[70%] h-[70%] bg-blue-900/20 rounded-full blur-[120px] animate-blob delay-2000"></div>
           <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03]"></div>
       </div>
 
-      <div className="relative z-10 flex flex-col flex-grow h-full w-full max-w-[393px] mx-auto pb-[80px]"> {/* Thêm padding bottom để tránh Footer che nội dung */}
+      <div className="relative z-10 flex flex-col flex-grow h-full w-full max-w-[393px] mx-auto pb-[80px]">
         
         <Header 
           user={user} 
           onClaim={handleClaim} 
           isClaiming={isClaiming} 
-          canClaim={canClaim} // Truyền state canClaim xuống Header
+          canClaim={canClaim}
           hasClaimedToday={hasClaimedToday}
         />
 
         <main className="flex-grow flex flex-col items-center w-full px-4 mt-4">
           
-          {/* --- HOME TAB --- */}
           {activeTab === Tab.HOME && (
               <QuoteCard
                 quote={currentQuote}
-                loading={isLoading} // Fix prop name: loading (dựa theo QuoteCard.tsx của bạn)
+                loading={isLoading}
                 onNewQuote={() => fetchQuote()}
                 onShare={handleShare}
               />
           )}
 
-          {/* --- MINT TAB --- */}
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-start pt-4 h-full w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                <div className="relative group w-full max-w-[300px] aspect-square mb-6 rounded-3xl overflow-hidden shadow-2xl border border-white/10">
@@ -324,7 +322,6 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* --- REWARD TAB --- */}
           {activeTab === Tab.REWARD && (
             <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 animate-in fade-in zoom-in">
               <p className="text-xl font-bold text-zinc-300">Rewards</p>
@@ -333,7 +330,6 @@ const App: React.FC = () => {
           )}
         </main>
 
-        {/* FIX LỖI FOOTER: Dùng đúng prop setActiveTab */}
         <Footer activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
