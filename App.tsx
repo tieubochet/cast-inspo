@@ -18,7 +18,7 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-const NFT_CONTRACT_ADDRESS = "0xYOUR_NFT_CONTRACT_ADDRESS_HERE" as const; // Thay địa chỉ contract NFT của bạn vào đây
+const NFT_CONTRACT_ADDRESS = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; // Thay địa chỉ contract NFT của bạn vào đây
 const CHAIN_ID = 8453; 
 const RPC_URL = "https://mainnet.base.org";
 
@@ -118,7 +118,7 @@ const App: React.FC = () => {
   }, []);
 
   const checkNftStatus = useCallback(async (address: string) => {
-    if (NFT_CONTRACT_ADDRESS === "0xYOUR_NFT_CONTRACT_ADDRESS_HERE") return;
+    if (NFT_CONTRACT_ADDRESS === "0x831e3158f427eb74a7b02Fa40E40daA1a9111568") return;
     try {
       const [supply, balance] = await Promise.all([
         publicClient.readContract({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
@@ -238,7 +238,7 @@ const App: React.FC = () => {
   // 3. Handle Mint NFT
   const handleMint = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
-    if (NFT_CONTRACT_ADDRESS === "0xYOUR_NFT_CONTRACT_ADDRESS_HERE") return showToast("Contract not setup", "error");
+    if (NFT_CONTRACT_ADDRESS === "0x831e3158f427eb74a7b02Fa40E40daA1a9111568") return showToast("Contract not setup", "error");
 
     setIsMintingNFT(true);
     showToast("Minting NFT...", "loading", 0);
