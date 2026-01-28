@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import sdk, { type Context } from '@farcaster/frame-sdk';
 import { 
   getDailyQuote, 
@@ -14,11 +14,10 @@ import ClaimSuccessModal from './components/ClaimSuccessModal';
 import { createPublicClient, http, parseAbi, encodeFunctionData } from 'viem';
 import { base } from 'viem/chains';
 import { Toaster, toast } from 'sonner';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, Flame, Trophy, Coins, Share2, Star } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-// Đã cập nhật địa chỉ Contract NFT của bạn
 const NFT_CONTRACT_ADDRESS = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
 const CHAIN_ID = 8453; 
 const RPC_URL = "https://mainnet.base.org";
@@ -85,6 +84,22 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Calculated Score (Gamification) ---
+  const userScore = useMemo(() => {
+    let score = 0;
+    if (hasMintedNFT) score += 500; // 500 points for NFT
+    if (hasClaimedToday) score += 50; // 50 points for daily claim
+    // Base score for simply being a user
+    if (user) score += 10;
+    return score;
+  }, [hasMintedNFT, hasClaimedToday, user]);
+
+  const userLevel = useMemo(() => {
+    if (userScore < 100) return "Novice";
+    if (userScore < 600) return "Seeker";
+    return "Inspirator";
+  }, [userScore]);
+
   // --- Data Fetching ---
   const fetchQuote = useCallback(async (quoteId?: string) => {
     setIsLoading(true);
@@ -136,7 +151,7 @@ const App: React.FC = () => {
       try {
         const context: Context = await sdk.context;
         if (context.user) {
-          setUser({ fid: context.user.fid, username: context.user.username, pfpUrl: context.user.pfpUrl });
+          setUser({ fid: context.user.fid, username: context.user.username, pfpUrl: context.user.pfpUrl, displayName: context.user.displayName });
         }
 
         if (sdk.wallet && sdk.wallet.ethProvider) {
@@ -163,11 +178,9 @@ const App: React.FC = () => {
 
   // --- Actions ---
 
-  // 1. Handle Share -> Unlock Claim
   const handleShare = async () => {
     if (!currentQuote) return;
     
-    // Unlock Claim button if not claimed yet
     if (!hasClaimedToday) {
         setCanClaim(true); 
     }
@@ -196,7 +209,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 2. Handle Claim Reward
   const handleClaim = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
     
@@ -233,7 +245,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 3. Handle Mint NFT
   const handleMint = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
     
@@ -322,10 +333,106 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {/* --- REWARD TAB (UPGRADED) --- */}
           {activeTab === Tab.REWARD && (
-            <div className="flex flex-col items-center justify-center h-[50vh] text-zinc-500 animate-in fade-in zoom-in">
-              <p className="text-xl font-bold text-zinc-300">Rewards</p>
-              <p className="text-sm">Coming soon.</p>
+            <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pt-2">
+              
+              {/* User Score Card */}
+              <div className="w-full bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-6 mb-6 shadow-xl relative overflow-hidden">
+                 <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Trophy size={120} />
+                 </div>
+                 
+                 <div className="relative z-10 flex flex-col gap-1">
+                    <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Score</span>
+                    <div className="flex items-baseline gap-2">
+                        <h2 className="text-4xl font-bold text-white">{userScore}</h2>
+                        <span className="text-emerald-400 text-sm font-medium">PTS</span>
+                    </div>
+                    
+                    {/* Rank Badge */}
+                    <div className="mt-4 flex items-center gap-2">
+                        <div className="px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-full text-purple-300 text-xs font-bold flex items-center gap-1">
+                            <Star size={12} fill="currentColor" />
+                            {userLevel}
+                        </div>
+                        <div className="h-1 flex-grow bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-purple-500 to-emerald-500 w-[60%]"></div>
+                        </div>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Quest Board */}
+              <div className="w-full space-y-3">
+                 <h3 className="text-zinc-400 text-sm font-bold uppercase tracking-wider px-2 mb-2">Daily Quests</h3>
+                 
+                 {/* Quest 1: Daily Claim */}
+                 <div className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${hasClaimedToday ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${hasClaimedToday ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Flame size={20} className={hasClaimedToday ? 'fill-current' : ''} />
+                        </div>
+                        <div>
+                            <p className={`font-semibold text-sm ${hasClaimedToday ? 'text-emerald-100' : 'text-zinc-200'}`}>Daily Check-in</p>
+                            <p className="text-xs text-zinc-500">+50 PTS</p>
+                        </div>
+                    </div>
+                    {hasClaimedToday ? (
+                        <CheckCircle2 size={20} className="text-emerald-500" />
+                    ) : (
+                        <button 
+                            onClick={handleClaim}
+                            disabled={!canClaim || isClaiming}
+                            className="px-3 py-1.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 disabled:opacity-50"
+                        >
+                            {isClaiming ? '...' : canClaim ? 'Claim' : 'Locked'}
+                        </button>
+                    )}
+                 </div>
+
+                 {/* Quest 2: Mint Badge */}
+                 <div className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${hasMintedNFT ? 'bg-purple-950/20 border-purple-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${hasMintedNFT ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Trophy size={20} className={hasMintedNFT ? 'fill-current' : ''} />
+                        </div>
+                        <div>
+                            <p className={`font-semibold text-sm ${hasMintedNFT ? 'text-purple-100' : 'text-zinc-200'}`}>Genesis Badge</p>
+                            <p className="text-xs text-zinc-500">+500 PTS</p>
+                        </div>
+                    </div>
+                    {hasMintedNFT ? (
+                        <CheckCircle2 size={20} className="text-purple-500" />
+                    ) : (
+                        <button 
+                            onClick={() => setActiveTab(Tab.MINT)}
+                            className="px-3 py-1.5 bg-zinc-800 text-white text-xs font-bold rounded-lg hover:bg-zinc-700"
+                        >
+                            Go Mint
+                        </button>
+                    )}
+                 </div>
+
+                 {/* Quest 3: Share (Mock for interaction) */}
+                 <div className="flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                            <Share2 size={20} />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-sm text-zinc-200">Share Quote</p>
+                            <p className="text-xs text-zinc-500">Repeatable</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setActiveTab(Tab.HOME)}
+                        className="px-3 py-1.5 bg-zinc-800 text-white text-xs font-bold rounded-lg hover:bg-zinc-700"
+                    >
+                        Go Share
+                    </button>
+                 </div>
+              </div>
             </div>
           )}
         </main>
@@ -336,7 +443,7 @@ const App: React.FC = () => {
       <ClaimSuccessModal 
         isOpen={showSuccessModal} 
         onClose={() => setShowSuccessModal(false)}
-        onShare={() => sdk.actions.openUrl(`https://warpcast.com/~/compose?text=I%20just%20claimed%20rewards!`)}
+        onShare={() => sdk.actions.openUrl(`https://warpcast.com/~/compose?text=I%20just%20claimed%20rewards%20and%20leveled%20up%20on%20CastInspo!%20%F0%9F%94%A5`)}
       />
     </div>
   );
