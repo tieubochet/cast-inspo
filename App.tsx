@@ -18,9 +18,11 @@ import { Loader2, CheckCircle2, Flame, Trophy, Share2, Star, Sparkles, Image as 
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-// Contract Genesis (Cũ)
+
+// Contract Genesis (Badge 100 slot)
 const GENESIS_NFT_CONTRACT = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
-// Contract Daily Quote (Mới - Hãy thay địa chỉ của bạn vào đây)
+
+// Contract Daily Quote (Mới cập nhật)
 const DAILY_NFT_CONTRACT = "0x0636503Eb16296bA79Bd4442098095656b0126CE" as const; 
 
 const CHAIN_ID = 8453; 
@@ -255,11 +257,10 @@ const App: React.FC = () => {
     }
   };
 
-  // --- NEW: MINT QUOTE OF THE DAY ---
+  // --- MINT QUOTE OF THE DAY ---
   const handleMintDailyQuote = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
     if (!currentQuote) return showToast("No quote loaded", "error");
-    if (DAILY_NFT_CONTRACT === "0x0636503Eb16296bA79Bd4442098095656b0126CE") return showToast("Contract not setup", "error");
 
     setIsMintingDaily(true);
     showToast("Preparing Quote...", "loading");
@@ -267,7 +268,6 @@ const App: React.FC = () => {
     try {
         // 1. Upload ảnh lên ImgBB để lấy URL
         let imageUrl = currentQuote.imageUrl;
-        // Nếu chưa có URL (do chưa share), ta upload ngay bây giờ
         if (!imageUrl || imageUrl.startsWith('data:')) {
             showToast("Uploading image to IPFS...", "loading");
             imageUrl = await uploadQuoteImageToImgBB(currentQuote);
@@ -312,7 +312,11 @@ const App: React.FC = () => {
 
     } catch (error: any) {
         console.error("Mint Daily Error:", error);
-        showToast("Mint failed. Try again.", "error");
+        if (error.code === 4001) {
+            showToast("Mint Cancelled", "error");
+        } else {
+            showToast("Mint failed. Try again.", "error");
+        }
     } finally {
         setIsMintingDaily(false);
     }
@@ -357,14 +361,14 @@ const App: React.FC = () => {
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-start w-full animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
                
-               {/* 1. MINT DAILY QUOTE SECTION (NEW) */}
+               {/* 1. MINT DAILY QUOTE SECTION */}
                <div className="w-full max-w-[400px] bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-lg">
                    <div className="flex items-center gap-2 mb-4">
                        <Sparkles className="text-amber-400" size={20} />
                        <h3 className="text-lg font-bold text-white">Quote of the Day</h3>
                    </div>
                    
-                   {/* Preview Image (Small) */}
+                   {/* Preview Image */}
                    <div className="aspect-[3/2] w-full bg-zinc-800 rounded-xl overflow-hidden mb-4 relative">
                         {currentQuote?.imageUrl ? (
                              <img src={currentQuote.imageUrl} alt="Quote" className="w-full h-full object-cover" />
@@ -388,7 +392,7 @@ const App: React.FC = () => {
                </div>
 
 
-               {/* 2. GENESIS BADGE SECTION (OLD) */}
+               {/* 2. GENESIS BADGE SECTION */}
                <div className="w-full max-w-[400px] opacity-90 hover:opacity-100 transition-opacity">
                    <div className="flex items-center gap-2 mb-2 px-1">
                        <Trophy className="text-purple-400" size={18} />
@@ -402,7 +406,6 @@ const App: React.FC = () => {
                             {genesisSupply}/100 Minted
                         </div>
                         
-                        {/* Overlay Content */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
                             <h2 className="text-2xl font-bold text-white mb-2">Genesis Badge</h2>
                             <button 
