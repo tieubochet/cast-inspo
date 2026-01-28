@@ -14,11 +14,15 @@ import ClaimSuccessModal from './components/ClaimSuccessModal';
 import { createPublicClient, http, parseAbi, encodeFunctionData } from 'viem';
 import { base } from 'viem/chains';
 import { Toaster, toast } from 'sonner';
-import { Loader2, CheckCircle2, Flame, Trophy, Share2, Star } from 'lucide-react';
+import { Loader2, CheckCircle2, Flame, Trophy, Share2, Star, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-const NFT_CONTRACT_ADDRESS = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
+// Contract Genesis (Cũ)
+const GENESIS_NFT_CONTRACT = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
+// Contract Daily Quote (Mới - Hãy thay địa chỉ của bạn vào đây)
+const DAILY_NFT_CONTRACT = "0x0636503Eb16296bA79Bd4442098095656b0126CE" as const; 
+
 const CHAIN_ID = 8453; 
 const RPC_URL = "https://mainnet.base.org";
 
@@ -29,10 +33,14 @@ const CLAIM_ABI = parseAbi([
   'function lastClaimDay(address user) external view returns (uint256)'
 ]);
 
-const NFT_ABI = parseAbi([
+const GENESIS_ABI = parseAbi([
   'function mint() external',
   'function totalSupply() view returns (uint256)',
   'function balanceOf(address owner) view returns (uint256)'
+]);
+
+const DAILY_ABI = parseAbi([
+  'function mintQuote(string uri) external'
 ]);
 
 const publicClient = createPublicClient({
@@ -56,9 +64,13 @@ const App: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
   
-  const [nftSupply, setNftSupply] = useState<number>(0);
-  const [hasMintedNFT, setHasMintedNFT] = useState<boolean>(false);
-  const [isMintingNFT, setIsMintingNFT] = useState<boolean>(false);
+  // Genesis NFT State
+  const [genesisSupply, setGenesisSupply] = useState<number>(0);
+  const [hasGenesisNFT, setHasGenesisNFT] = useState<boolean>(false);
+  const [isMintingGenesis, setIsMintingGenesis] = useState<boolean>(false);
+
+  // Daily Quote NFT State
+  const [isMintingDaily, setIsMintingDaily] = useState<boolean>(false);
 
   const toastIdRef = useRef<string | number | null>(null);
 
@@ -84,11 +96,11 @@ const App: React.FC = () => {
   // --- SCORE LOGIC ---
   const userScore = useMemo(() => {
     let score = 0;
-    if (hasMintedNFT) score += 500;
+    if (hasGenesisNFT) score += 500;
     if (hasClaimedToday) score += 50;
     if (user) score += 10;
     return score;
-  }, [hasMintedNFT, hasClaimedToday, user]);
+  }, [hasGenesisNFT, hasClaimedToday, user]);
 
   const userLevel = useMemo(() => {
     if (userScore < 100) return "Novice";
@@ -124,16 +136,16 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const checkNftStatus = useCallback(async (address: string) => {
+  const checkGenesisStatus = useCallback(async (address: string) => {
     try {
       const [supply, balance] = await Promise.all([
-        publicClient.readContract({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
-        publicClient.readContract({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }) as Promise<bigint>
+        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: GENESIS_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
+        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: GENESIS_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }) as Promise<bigint>
       ]);
-      setNftSupply(Number(supply));
-      setHasMintedNFT(Number(balance) > 0);
+      setGenesisSupply(Number(supply));
+      setHasGenesisNFT(Number(balance) > 0);
     } catch (error) {
-      console.error("Failed check NFT:", error);
+      console.error("Failed check Genesis NFT:", error);
     }
   }, []);
 
@@ -151,7 +163,7 @@ const App: React.FC = () => {
              const address = accounts[0];
              setUserAddress(address);
              checkClaimStatus(address);
-             checkNftStatus(address);
+             checkGenesisStatus(address);
            }
         }
         const params = new URLSearchParams(window.location.search);
@@ -163,7 +175,7 @@ const App: React.FC = () => {
       }
     };
     initSDK();
-  }, [fetchQuote, checkClaimStatus, checkNftStatus]);
+  }, [fetchQuote, checkClaimStatus, checkGenesisStatus]);
 
   // --- HANDLERS ---
   const handleShare = async () => {
@@ -217,21 +229,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMint = async () => {
+  const handleMintGenesis = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
-    setIsMintingNFT(true);
-    showToast("Minting NFT...", "loading", 0);
+    setIsMintingGenesis(true);
+    showToast("Minting Genesis...", "loading", 0);
     try {
       const isBase = await checkChainId();
       if (!isBase) await sdk.wallet.ethProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${CHAIN_ID.toString(16)}` }] });
 
       const hash = await sdk.wallet.ethProvider.request({
         method: 'eth_sendTransaction',
-        params: [{ to: NFT_CONTRACT_ADDRESS, from: userAddress, data: encodeFunctionData({ abi: NFT_ABI, functionName: "mint" }) }]
+        params: [{ to: GENESIS_NFT_CONTRACT, from: userAddress, data: encodeFunctionData({ abi: GENESIS_ABI, functionName: "mint" }) }]
       });
-      showToast("Minted successfully!", "success");
-      setHasMintedNFT(true);
-      setNftSupply(prev => prev + 1);
+      showToast("Minted Genesis successfully!", "success");
+      setHasGenesisNFT(true);
+      setGenesisSupply(prev => prev + 1);
     } catch (error: any) {
       if (error.message?.includes('reverted')) {
           showToast("Mint failed: Sold out or already minted?", "error");
@@ -239,24 +251,86 @@ const App: React.FC = () => {
           showToast("Mint failed.", "error");
       }
     } finally {
-      setIsMintingNFT(false);
+      setIsMintingGenesis(false);
+    }
+  };
+
+  // --- NEW: MINT QUOTE OF THE DAY ---
+  const handleMintDailyQuote = async () => {
+    if (!userAddress) return showToast("Connect wallet first", "error");
+    if (!currentQuote) return showToast("No quote loaded", "error");
+    if (DAILY_NFT_CONTRACT === "0x0636503Eb16296bA79Bd4442098095656b0126CE") return showToast("Contract not setup", "error");
+
+    setIsMintingDaily(true);
+    showToast("Preparing Quote...", "loading");
+
+    try {
+        // 1. Upload ảnh lên ImgBB để lấy URL
+        let imageUrl = currentQuote.imageUrl;
+        // Nếu chưa có URL (do chưa share), ta upload ngay bây giờ
+        if (!imageUrl || imageUrl.startsWith('data:')) {
+            showToast("Uploading image to IPFS...", "loading");
+            imageUrl = await uploadQuoteImageToImgBB(currentQuote);
+        }
+
+        // 2. Tạo Metadata JSON (Data URI)
+        const metadata = {
+            name: `CastInspo Daily #${currentQuote.id}`,
+            description: `"${currentQuote.text}" - ${currentQuote.author}. Minted via CastInspo.`,
+            image: imageUrl,
+            attributes: [
+                { trait_type: "Author", value: currentQuote.author },
+                { trait_type: "Source", value: "CastInspo" }
+            ]
+        };
+        
+        // Encode metadata thành Base64 Data URI
+        const jsonString = JSON.stringify(metadata);
+        const metadataURI = `data:application/json;base64,${btoa(jsonString)}`;
+
+        // 3. Gửi Transaction
+        showToast("Confirming on wallet...", "loading");
+        
+        const isBase = await checkChainId();
+        if (!isBase) await sdk.wallet.ethProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${CHAIN_ID.toString(16)}` }] });
+
+        const hash = await sdk.wallet.ethProvider.request({
+            method: 'eth_sendTransaction',
+            params: [{ 
+                to: DAILY_NFT_CONTRACT, 
+                from: userAddress, 
+                data: encodeFunctionData({ 
+                    abi: DAILY_ABI, 
+                    functionName: "mintQuote",
+                    args: [metadataURI]
+                }) 
+            }]
+        });
+
+        console.log("Mint Hash:", hash);
+        showToast("Quote minted successfully!", "success");
+
+    } catch (error: any) {
+        console.error("Mint Daily Error:", error);
+        showToast("Mint failed. Try again.", "error");
+    } finally {
+        setIsMintingDaily(false);
     }
   };
 
   // --- RENDER ---
   return (
-    // ROOT: Full Screen, No Scroll on Body
     <div className="h-screen w-full bg-[#0a0a0a] text-white flex flex-col relative overflow-hidden font-sans selection:bg-purple-500/30">
       <Toaster position="top-center" theme="dark" toastOptions={{ style: { background: 'rgba(39, 39, 42, 0.9)', border: '1px solid #3f3f46' } }}/>
 
-      {/* BACKGROUND (Fixed) */}
+      {/* BACKGROUND */}
       <div className="fixed inset-0 pointer-events-none z-0">
           <div className="absolute top-[-20%] left-[-20%] w-[70%] h-[70%] bg-purple-900/20 rounded-full blur-[120px] animate-blob"></div>
           <div className="absolute bottom-[-20%] right-[-20%] w-[70%] h-[70%] bg-blue-900/20 rounded-full blur-[120px] animate-blob delay-2000"></div>
           <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03]"></div>
       </div>
 
-      {/* HEADER (Z-INDEX CAO) */}
+      {/* HEADER */}
       <div className="relative z-20 w-full flex-none">
         <Header 
           user={user} 
@@ -267,10 +341,9 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* MAIN CONTENT (SCROLLABLE AREA) */}
-      {/* flex-1 để chiếm hết chiều cao còn lại, overflow-y-auto để cuộn nội dung */}
+      {/* MAIN CONTENT */}
       <div className="relative z-10 flex-1 w-full overflow-y-auto overflow-x-hidden scrollbar-hide">
-        <main className="w-full min-h-full flex flex-col items-center px-4 pt-4 pb-28"> {/* pb-28 để tránh nội dung bị che bởi Footer */}
+        <main className="w-full min-h-full flex flex-col items-center px-4 pt-4 pb-28">
           
           {activeTab === Tab.HOME && (
               <QuoteCard
@@ -282,45 +355,84 @@ const App: React.FC = () => {
           )}
 
           {activeTab === Tab.MINT && (
-            <div className="flex flex-col items-center justify-start w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <div className="relative group w-full max-w-[400px] aspect-square mb-8 rounded-3xl overflow-hidden shadow-2xl border border-white/10 mt-4">
-                 <img src="/nft-preview.png" alt="NFT" className="w-full h-full object-cover" 
-                      onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/27272a/FFFFFF/png?text=NFT'} />
-                 <div className="absolute bottom-4 right-4 px-4 py-1.5 bg-black/70 backdrop-blur rounded-full text-sm text-white border border-white/20">
-                    {nftSupply}/100 Minted
-                 </div>
+            <div className="flex flex-col items-center justify-start w-full animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+               
+               {/* 1. MINT DAILY QUOTE SECTION (NEW) */}
+               <div className="w-full max-w-[400px] bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-lg">
+                   <div className="flex items-center gap-2 mb-4">
+                       <Sparkles className="text-amber-400" size={20} />
+                       <h3 className="text-lg font-bold text-white">Quote of the Day</h3>
+                   </div>
+                   
+                   {/* Preview Image (Small) */}
+                   <div className="aspect-[3/2] w-full bg-zinc-800 rounded-xl overflow-hidden mb-4 relative">
+                        {currentQuote?.imageUrl ? (
+                             <img src={currentQuote.imageUrl} alt="Quote" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-zinc-500 gap-2">
+                                <ImageIcon size={24} />
+                                <span className="text-xs">Preview loading...</span>
+                            </div>
+                        )}
+                   </div>
+
+                   <button 
+                      onClick={handleMintDailyQuote}
+                      disabled={isMintingDaily || isLoading}
+                      className="w-full py-3 rounded-xl font-bold text-base bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                   >
+                      {isMintingDaily ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                      {isMintingDaily ? "Minting..." : "Mint This Quote (Open Edition)"}
+                   </button>
+                   <p className="text-[10px] text-center text-zinc-500 mt-2">Create a permanent collectible of this moment.</p>
                </div>
-               
-               <h2 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 mb-6">Genesis Badge</h2>
-               
-               <button 
-                  onClick={handleMint}
-                  disabled={isMintingNFT || hasMintedNFT || nftSupply >= 100}
-                  className={`w-full max-w-[400px] py-4 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-3 shadow-lg
-                    ${hasMintedNFT ? 'bg-zinc-800 text-zinc-500' : 'bg-white text-black hover:scale-[1.02]'}`}
-               >
-                  {isMintingNFT ? <Loader2 className="animate-spin" /> : hasMintedNFT ? <CheckCircle2 /> : "Mint Free"}
-                  {isMintingNFT ? "Minting..." : hasMintedNFT ? "Owned" : ""}
-               </button>
+
+
+               {/* 2. GENESIS BADGE SECTION (OLD) */}
+               <div className="w-full max-w-[400px] opacity-90 hover:opacity-100 transition-opacity">
+                   <div className="flex items-center gap-2 mb-2 px-1">
+                       <Trophy className="text-purple-400" size={18} />
+                       <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Genesis Collection</h3>
+                   </div>
+                   
+                   <div className="relative group w-full aspect-square rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+                        <img src="/nft-preview.png" alt="NFT" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
+                                onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/27272a/FFFFFF/png?text=NFT'} />
+                        <div className="absolute bottom-4 right-4 px-3 py-1 bg-black/70 backdrop-blur rounded-full text-xs text-white border border-white/20">
+                            {genesisSupply}/100 Minted
+                        </div>
+                        
+                        {/* Overlay Content */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
+                            <h2 className="text-2xl font-bold text-white mb-2">Genesis Badge</h2>
+                            <button 
+                                onClick={handleMintGenesis}
+                                disabled={isMintingGenesis || hasGenesisNFT || genesisSupply >= 100}
+                                className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                                    ${hasGenesisNFT ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' : 'bg-white text-black hover:bg-zinc-200'}`}
+                            >
+                                {isMintingGenesis ? <Loader2 className="animate-spin" size={16} /> : hasGenesisNFT ? <CheckCircle2 size={16} /> : "Mint Genesis"}
+                                {isMintingGenesis ? "Processing..." : hasGenesisNFT ? "Owned" : "Mint Free"}
+                            </button>
+                        </div>
+                   </div>
+               </div>
             </div>
           )}
 
           {activeTab === Tab.REWARD && (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* User Score Card - Full Width */}
               <div className="w-full bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-6 mb-6 shadow-xl relative overflow-hidden mt-2">
                  <div className="absolute top-0 right-0 p-4 opacity-10">
                     <Trophy size={160} />
                  </div>
-                 
                  <div className="relative z-10 flex flex-col gap-2">
                     <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Score</span>
                     <div className="flex items-baseline gap-2">
                         <h2 className="text-6xl font-bold text-white tracking-tighter">{userScore}</h2>
                         <span className="text-emerald-400 text-xl font-medium">PTS</span>
                     </div>
-                    
                     <div className="mt-4 flex items-center gap-3">
                         <div className="px-4 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-full text-purple-300 text-sm font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
                             <Star size={14} fill="currentColor" />
@@ -333,11 +445,9 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              {/* Quest Board */}
               <div className="w-full space-y-4">
                  <h3 className="text-zinc-400 text-sm font-bold uppercase tracking-wider px-2 mb-1">Daily Quests</h3>
                  
-                 {/* Quest Item 1 */}
                  <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${hasClaimedToday ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasClaimedToday ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -361,18 +471,17 @@ const App: React.FC = () => {
                     )}
                  </div>
 
-                 {/* Quest Item 2 */}
-                 <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${hasMintedNFT ? 'bg-purple-950/20 border-purple-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                 <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${hasGenesisNFT ? 'bg-purple-950/20 border-purple-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
                     <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasMintedNFT ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                            <Trophy size={24} className={hasMintedNFT ? 'fill-current' : ''} />
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasGenesisNFT ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Trophy size={24} className={hasGenesisNFT ? 'fill-current' : ''} />
                         </div>
                         <div>
-                            <p className={`font-bold text-lg ${hasMintedNFT ? 'text-purple-100' : 'text-zinc-100'}`}>Genesis Badge</p>
+                            <p className={`font-bold text-lg ${hasGenesisNFT ? 'text-purple-100' : 'text-zinc-100'}`}>Genesis Badge</p>
                             <p className="text-xs text-zinc-500 font-medium tracking-wide">+500 PTS</p>
                         </div>
                     </div>
-                    {hasMintedNFT ? (
+                    {hasGenesisNFT ? (
                         <CheckCircle2 size={24} className="text-purple-500" />
                     ) : (
                         <button 
@@ -384,7 +493,6 @@ const App: React.FC = () => {
                     )}
                  </div>
 
-                 {/* Quest Item 3 */}
                  <div className="flex items-center justify-between p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:bg-zinc-800/40">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
@@ -408,9 +516,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* FOOTER (FIXED ON TOP OF EVERYTHING) */}
-      {/* Do Footer component gốc dùng 'absolute bottom-0', 
-          để nó luôn nổi lên trên, ta đặt nó là con trực tiếp của Root relative */}
+      {/* FOOTER */}
       <div className="z-50 w-full">
          <Footer activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
