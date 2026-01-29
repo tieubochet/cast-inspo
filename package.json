@@ -10,11 +10,12 @@
   },
   "dependencies": {
     "@farcaster/frame-sdk": "^0.0.30",
+    "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "viem": "^2.21.55",
-    "sonner": "^1.4.0"
+    "sonner": "^1.4.0",
+    "viem": "^2.21.55"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
