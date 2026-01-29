@@ -6,7 +6,7 @@ import {
   uploadQuoteImageToImgBB,
   generateSharingLink 
 } from './services/Service';
-// IMPORT MỚI
+
 import { getLeaderboard, updateUserScore, getUserScore } from './services/SupabaseClient'; 
 import { Quote, FarcasterUser, Tab } from './types';
 import QuoteCard from './components/QuoteCard';
@@ -149,21 +149,17 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- NEW: FETCH LEADERBOARD ---
+
   const refreshLeaderboard = useCallback(async () => {
     const data = await getLeaderboard();
     setLeaderboardData(data);
   }, []);
 
-  // --- NEW: SYNC SCORE ON INIT ---
+
   useEffect(() => {
     if (user?.fid) {
-        // Lấy điểm thật từ DB khi load app
         getUserScore(user.fid).then(score => {
-            // Nếu là user mới chưa có điểm (0), thử tính toán điểm khởi tạo
             if (score === 0) {
-               // Logic khởi tạo điểm ban đầu (nếu cần)
-               // setRealScore(0);
             } else {
                setRealScore(score);
             }
@@ -242,11 +238,10 @@ const App: React.FC = () => {
       setShowSuccessModal(true);
       showToast("Claimed successfully! +50 PTS", "success");
 
-      // --- CẬP NHẬT ĐIỂM THẬT ---
       if (user) {
           const newScore = await updateUserScore(user, 50);
           setRealScore(newScore);
-          refreshLeaderboard(); // Refresh BXH
+          refreshLeaderboard(); 
       }
 
     } catch (error: any) {
@@ -340,7 +335,7 @@ const App: React.FC = () => {
         showToast("Quote minted! +20 Points", "success");
         setDailyQuoteCount(prev => prev + 1);
 
-        // --- CẬP NHẬT ĐIỂM THẬT ---
+       
         if (user) {
             const newScore = await updateUserScore(user, 20);
             setRealScore(newScore);
