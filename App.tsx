@@ -18,11 +18,7 @@ import { Loader2, CheckCircle2, Flame, Trophy, Share2, Star, Sparkles, Image as 
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-
-// Contract Genesis (Badge 100 slot)
 const GENESIS_NFT_CONTRACT = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
-
-// Contract Daily Quote (Mới cập nhật)
 const DAILY_NFT_CONTRACT = "0x0636503Eb16296bA79Bd4442098095656b0126CE" as const; 
 
 const CHAIN_ID = 8453; 
@@ -35,14 +31,12 @@ const CLAIM_ABI = parseAbi([
   'function lastClaimDay(address user) external view returns (uint256)'
 ]);
 
-const GENESIS_ABI = parseAbi([
-  'function mint() external',
+// ERC721 Standard ABI (Dùng chung cho cả Genesis và Daily Quote để check balance)
+const ERC721_ABI = parseAbi([
+  'function mint() external', // Cho Genesis
+  'function mintQuote(string uri) external', // Cho Daily Quote
   'function totalSupply() view returns (uint256)',
   'function balanceOf(address owner) view returns (uint256)'
-]);
-
-const DAILY_ABI = parseAbi([
-  'function mintQuote(string uri) external'
 ]);
 
 const publicClient = createPublicClient({
@@ -72,6 +66,7 @@ const App: React.FC = () => {
   const [isMintingGenesis, setIsMintingGenesis] = useState<boolean>(false);
 
   // Daily Quote NFT State
+  const [dailyQuoteCount, setDailyQuoteCount] = useState<number>(0); // Đếm số lượng quote đã mint
   const [isMintingDaily, setIsMintingDaily] = useState<boolean>(false);
 
   const toastIdRef = useRef<string | number | null>(null);
@@ -95,14 +90,15 @@ const App: React.FC = () => {
     }
   };
 
-  // --- SCORE LOGIC ---
+  // --- SCORE LOGIC (UPDATED) ---
   const userScore = useMemo(() => {
     let score = 0;
     if (hasGenesisNFT) score += 500;
     if (hasClaimedToday) score += 50;
+    if (dailyQuoteCount > 0) score += (dailyQuoteCount * 20); // +20 điểm cho mỗi Quote đã mint
     if (user) score += 10;
     return score;
-  }, [hasGenesisNFT, hasClaimedToday, user]);
+  }, [hasGenesisNFT, hasClaimedToday, dailyQuoteCount, user]);
 
   const userLevel = useMemo(() => {
     if (userScore < 100) return "Novice";
@@ -138,16 +134,27 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const checkGenesisStatus = useCallback(async (address: string) => {
+  const checkNFTsStatus = useCallback(async (address: string) => {
     try {
-      const [supply, balance] = await Promise.all([
-        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: GENESIS_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
-        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: GENESIS_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }) as Promise<bigint>
+      // Check Genesis
+      const [genSupply, genBalance] = await Promise.all([
+        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: ERC721_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
+        publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: ERC721_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }) as Promise<bigint>
       ]);
-      setGenesisSupply(Number(supply));
-      setHasGenesisNFT(Number(balance) > 0);
+      setGenesisSupply(Number(genSupply));
+      setHasGenesisNFT(Number(genBalance) > 0);
+
+      // Check Daily Quote Count
+      const dailyBalance = await publicClient.readContract({ 
+        address: DAILY_NFT_CONTRACT, 
+        abi: ERC721_ABI, 
+        functionName: 'balanceOf', 
+        args: [address as `0x${string}`] 
+      }) as bigint;
+      setDailyQuoteCount(Number(dailyBalance));
+
     } catch (error) {
-      console.error("Failed check Genesis NFT:", error);
+      console.error("Failed check NFTs:", error);
     }
   }, []);
 
@@ -165,7 +172,7 @@ const App: React.FC = () => {
              const address = accounts[0];
              setUserAddress(address);
              checkClaimStatus(address);
-             checkGenesisStatus(address);
+             checkNFTsStatus(address);
            }
         }
         const params = new URLSearchParams(window.location.search);
@@ -177,7 +184,7 @@ const App: React.FC = () => {
       }
     };
     initSDK();
-  }, [fetchQuote, checkClaimStatus, checkGenesisStatus]);
+  }, [fetchQuote, checkClaimStatus, checkNFTsStatus]);
 
   // --- HANDLERS ---
   const handleShare = async () => {
@@ -241,7 +248,7 @@ const App: React.FC = () => {
 
       const hash = await sdk.wallet.ethProvider.request({
         method: 'eth_sendTransaction',
-        params: [{ to: GENESIS_NFT_CONTRACT, from: userAddress, data: encodeFunctionData({ abi: GENESIS_ABI, functionName: "mint" }) }]
+        params: [{ to: GENESIS_NFT_CONTRACT, from: userAddress, data: encodeFunctionData({ abi: ERC721_ABI, functionName: "mint" }) }]
       });
       showToast("Minted Genesis successfully!", "success");
       setHasGenesisNFT(true);
@@ -257,7 +264,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- MINT QUOTE OF THE DAY ---
   const handleMintDailyQuote = async () => {
     if (!userAddress) return showToast("Connect wallet first", "error");
     if (!currentQuote) return showToast("No quote loaded", "error");
@@ -266,31 +272,25 @@ const App: React.FC = () => {
     showToast("Preparing Quote...", "loading");
 
     try {
-        // 1. Upload ảnh lên ImgBB để lấy URL
+        // 1. Upload & Prepare Metadata
         let imageUrl = currentQuote.imageUrl;
         if (!imageUrl || imageUrl.startsWith('data:')) {
-            showToast("Uploading image to IPFS...", "loading");
+            showToast("Uploading image...", "loading");
             imageUrl = await uploadQuoteImageToImgBB(currentQuote);
         }
 
-        // 2. Tạo Metadata JSON (Data URI)
         const metadata = {
             name: `CastInspo Daily #${currentQuote.id}`,
-            description: `"${currentQuote.text}" - ${currentQuote.author}. Minted via CastInspo.`,
+            description: `"${currentQuote.text}" - ${currentQuote.author}`,
             image: imageUrl,
             attributes: [
                 { trait_type: "Author", value: currentQuote.author },
                 { trait_type: "Source", value: "CastInspo" }
             ]
         };
-        
-        // Encode metadata thành Base64 Data URI
-        const jsonString = JSON.stringify(metadata);
-        const metadataURI = `data:application/json;base64,${btoa(jsonString)}`;
+        const metadataURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
 
-        // 3. Gửi Transaction
-        showToast("Confirming on wallet...", "loading");
-        
+        // 2. Mint
         const isBase = await checkChainId();
         if (!isBase) await sdk.wallet.ethProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${CHAIN_ID.toString(16)}` }] });
 
@@ -300,7 +300,7 @@ const App: React.FC = () => {
                 to: DAILY_NFT_CONTRACT, 
                 from: userAddress, 
                 data: encodeFunctionData({ 
-                    abi: DAILY_ABI, 
+                    abi: ERC721_ABI, 
                     functionName: "mintQuote",
                     args: [metadataURI]
                 }) 
@@ -308,14 +308,15 @@ const App: React.FC = () => {
         });
 
         console.log("Mint Hash:", hash);
-        showToast("Quote minted successfully!", "success");
+        showToast("Quote minted! +20 Points", "success");
+        setDailyQuoteCount(prev => prev + 1); // Cập nhật điểm ngay lập tức
 
     } catch (error: any) {
         console.error("Mint Daily Error:", error);
         if (error.code === 4001) {
             showToast("Mint Cancelled", "error");
         } else {
-            showToast("Mint failed. Try again.", "error");
+            showToast("Mint failed.", "error");
         }
     } finally {
         setIsMintingDaily(false);
@@ -361,14 +362,16 @@ const App: React.FC = () => {
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-start w-full animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
                
-               {/* 1. MINT DAILY QUOTE SECTION */}
+               {/* DAILY QUOTE SECTION */}
                <div className="w-full max-w-[400px] bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-lg">
                    <div className="flex items-center gap-2 mb-4">
                        <Sparkles className="text-amber-400" size={20} />
-                       <h3 className="text-lg font-bold text-white">Quote of the Day</h3>
+                       <div className="flex flex-col">
+                         <h3 className="text-lg font-bold text-white leading-none">Quote of the Day</h3>
+                         <span className="text-xs text-amber-300 font-medium">+20 Points per Mint</span>
+                       </div>
                    </div>
                    
-                   {/* Preview Image */}
                    <div className="aspect-[3/2] w-full bg-zinc-800 rounded-xl overflow-hidden mb-4 relative">
                         {currentQuote?.imageUrl ? (
                              <img src={currentQuote.imageUrl} alt="Quote" className="w-full h-full object-cover" />
@@ -386,13 +389,12 @@ const App: React.FC = () => {
                       className="w-full py-3 rounded-xl font-bold text-base bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                    >
                       {isMintingDaily ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                      {isMintingDaily ? "Minting..." : "Mint This Quote (Open Edition)"}
+                      {isMintingDaily ? "Minting..." : "Mint & Earn 20 PTS"}
                    </button>
-                   <p className="text-[10px] text-center text-zinc-500 mt-2">Create a permanent collectible of this moment.</p>
                </div>
 
 
-               {/* 2. GENESIS BADGE SECTION */}
+               {/* GENESIS BADGE SECTION */}
                <div className="w-full max-w-[400px] opacity-90 hover:opacity-100 transition-opacity">
                    <div className="flex items-center gap-2 mb-2 px-1">
                        <Trophy className="text-purple-400" size={18} />
@@ -415,7 +417,7 @@ const App: React.FC = () => {
                                     ${hasGenesisNFT ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' : 'bg-white text-black hover:bg-zinc-200'}`}
                             >
                                 {isMintingGenesis ? <Loader2 className="animate-spin" size={16} /> : hasGenesisNFT ? <CheckCircle2 size={16} /> : "Mint Genesis"}
-                                {isMintingGenesis ? "Processing..." : hasGenesisNFT ? "Owned" : "Mint Free"}
+                                {isMintingGenesis ? "Processing..." : hasGenesisNFT ? "Owned (+500 PTS)" : "Mint Free (+500 PTS)"}
                             </button>
                         </div>
                    </div>
@@ -451,6 +453,7 @@ const App: React.FC = () => {
               <div className="w-full space-y-4">
                  <h3 className="text-zinc-400 text-sm font-bold uppercase tracking-wider px-2 mb-1">Daily Quests</h3>
                  
+                 {/* 1. CHECK IN */}
                  <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${hasClaimedToday ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasClaimedToday ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -464,16 +467,32 @@ const App: React.FC = () => {
                     {hasClaimedToday ? (
                         <CheckCircle2 size={24} className="text-emerald-500" />
                     ) : (
-                        <button 
-                            onClick={handleClaim}
-                            disabled={!canClaim || isClaiming}
-                            className="px-4 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 disabled:opacity-50"
-                        >
+                        <button onClick={handleClaim} disabled={!canClaim || isClaiming} className="px-4 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 disabled:opacity-50">
                             {isClaiming ? '...' : canClaim ? 'Claim' : 'Locked'}
                         </button>
                     )}
                  </div>
 
+                 {/* 2. MINT QUOTE (NEW) */}
+                 <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${dailyQuoteCount > 0 ? 'bg-amber-950/20 border-amber-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                    <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${dailyQuoteCount > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Sparkles size={24} className={dailyQuoteCount > 0 ? 'fill-current' : ''} />
+                        </div>
+                        <div>
+                            <p className={`font-bold text-lg ${dailyQuoteCount > 0 ? 'text-amber-100' : 'text-zinc-100'}`}>Mint Daily Quote</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs text-zinc-500 font-medium tracking-wide">+20 PTS</p>
+                                {dailyQuoteCount > 0 && <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 rounded">x{dailyQuoteCount}</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={() => setActiveTab(Tab.MINT)} className="px-4 py-2 bg-zinc-800 text-white text-sm font-bold rounded-xl hover:bg-zinc-700">
+                        Go Mint
+                    </button>
+                 </div>
+
+                 {/* 3. GENESIS BADGE */}
                  <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:bg-zinc-800/40 ${hasGenesisNFT ? 'bg-purple-950/20 border-purple-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasGenesisNFT ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -484,35 +503,11 @@ const App: React.FC = () => {
                             <p className="text-xs text-zinc-500 font-medium tracking-wide">+500 PTS</p>
                         </div>
                     </div>
-                    {hasGenesisNFT ? (
-                        <CheckCircle2 size={24} className="text-purple-500" />
-                    ) : (
-                        <button 
-                            onClick={() => setActiveTab(Tab.MINT)}
-                            className="px-4 py-2 bg-zinc-800 text-white text-sm font-bold rounded-xl hover:bg-zinc-700"
-                        >
-                            Go Mint
-                        </button>
-                    )}
+                    {hasGenesisNFT ? <CheckCircle2 size={24} className="text-purple-500" /> : 
+                        <button onClick={() => setActiveTab(Tab.MINT)} className="px-4 py-2 bg-zinc-800 text-white text-sm font-bold rounded-xl hover:bg-zinc-700">Go Mint</button>
+                    }
                  </div>
 
-                 <div className="flex items-center justify-between p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:bg-zinc-800/40">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
-                            <Share2 size={24} />
-                        </div>
-                        <div>
-                            <p className="font-bold text-lg text-zinc-100">Share Quote</p>
-                            <p className="text-xs text-zinc-500 font-medium tracking-wide">Repeatable</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => setActiveTab(Tab.HOME)}
-                        className="px-4 py-2 bg-zinc-800 text-white text-sm font-bold rounded-xl hover:bg-zinc-700"
-                    >
-                        Go Share
-                    </button>
-                 </div>
               </div>
             </div>
           )}
