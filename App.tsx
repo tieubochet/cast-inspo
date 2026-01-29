@@ -17,24 +17,24 @@ import { Toaster, toast } from 'sonner';
 import { Loader2, CheckCircle2, Flame, Trophy, Share2, Star, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; 
-const GENESIS_NFT_CONTRACT = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; 
-const DAILY_NFT_CONTRACT = "0x0636503Eb16296bA79Bd4442098095656b0126CE" as const; 
+const CONTRACT_ADDRESS = "0xcB517c1Ba4587a5192eB8D4f45e1f8617a47a90c"; // Contract Reward Check-in
+const GENESIS_NFT_CONTRACT = "0x831e3158f427eb74a7b02Fa40E40daA1a9111568" as const; // Contract Genesis
+const DAILY_NFT_CONTRACT = "0x0636503Eb16296bA79Bd4442098095656b0126CE" as const; // Contract Daily Quote
 
 const CHAIN_ID = 8453; 
 const RPC_URL = "https://mainnet.base.org";
 
-// --- ABI ---
+// --- ABI DEFINITIONS ---
 const CLAIM_ABI = parseAbi([
   'function checkInAndClaim() external',
   'function getCurrentDay() external view returns (uint256)',
   'function lastClaimDay(address user) external view returns (uint256)'
 ]);
 
-// ERC721 Standard ABI (Dùng chung cho cả Genesis và Daily Quote để check balance)
+// Dùng chung ABI chuẩn ERC721 cho cả Genesis và Daily Quote
 const ERC721_ABI = parseAbi([
-  'function mint() external', // Cho Genesis
-  'function mintQuote(string uri) external', // Cho Daily Quote
+  'function mint() external', // Hàm mint của Genesis
+  'function mintQuote(string uri) external', // Hàm mint của Daily Quote
   'function totalSupply() view returns (uint256)',
   'function balanceOf(address owner) view returns (uint256)'
 ]);
@@ -93,10 +93,21 @@ const App: React.FC = () => {
   // --- SCORE LOGIC (UPDATED) ---
   const userScore = useMemo(() => {
     let score = 0;
-    if (hasGenesisNFT) score += 500;
-    if (hasClaimedToday) score += 50;
-    if (dailyQuoteCount > 0) score += (dailyQuoteCount * 20); // +20 điểm cho mỗi Quote đã mint
+    
+    // 1. Điểm cơ bản cho User
     if (user) score += 10;
+    
+    // 2. Điểm Daily Check-in (Giữ nguyên)
+    if (hasClaimedToday) score += 50;
+    
+    // 3. Điểm Genesis NFT (Giữ nguyên)
+    if (hasGenesisNFT) score += 500;
+    
+    // 4. MỚI: Điểm Mint Quote (+20 cho mỗi quote)
+    if (dailyQuoteCount > 0) {
+        score += (dailyQuoteCount * 20);
+    }
+
     return score;
   }, [hasGenesisNFT, hasClaimedToday, dailyQuoteCount, user]);
 
@@ -134,9 +145,10 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Kiểm tra trạng thái cả 2 loại NFT
   const checkNFTsStatus = useCallback(async (address: string) => {
     try {
-      // Check Genesis
+      // 1. Check Genesis NFT
       const [genSupply, genBalance] = await Promise.all([
         publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: ERC721_ABI, functionName: 'totalSupply' }) as Promise<bigint>,
         publicClient.readContract({ address: GENESIS_NFT_CONTRACT, abi: ERC721_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }) as Promise<bigint>
@@ -144,7 +156,7 @@ const App: React.FC = () => {
       setGenesisSupply(Number(genSupply));
       setHasGenesisNFT(Number(genBalance) > 0);
 
-      // Check Daily Quote Count
+      // 2. Check Daily Quote NFT (Để tính điểm)
       const dailyBalance = await publicClient.readContract({ 
         address: DAILY_NFT_CONTRACT, 
         abi: ERC721_ABI, 
@@ -362,7 +374,7 @@ const App: React.FC = () => {
           {activeTab === Tab.MINT && (
             <div className="flex flex-col items-center justify-start w-full animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
                
-               {/* DAILY QUOTE SECTION */}
+               {/* 1. MINT DAILY QUOTE SECTION */}
                <div className="w-full max-w-[400px] bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-lg">
                    <div className="flex items-center gap-2 mb-4">
                        <Sparkles className="text-amber-400" size={20} />
@@ -394,7 +406,7 @@ const App: React.FC = () => {
                </div>
 
 
-               {/* GENESIS BADGE SECTION */}
+               {/* 2. GENESIS BADGE SECTION */}
                <div className="w-full max-w-[400px] opacity-90 hover:opacity-100 transition-opacity">
                    <div className="flex items-center gap-2 mb-2 px-1">
                        <Trophy className="text-purple-400" size={18} />
