@@ -17,3 +17,11 @@ export interface FarcasterUser {
   displayName?: string;
   pfpUrl?: string;
 }
+
+export interface QuoteTheme {
+  id: string;
+  name: string;
+  bg: string[]; 
+  text: string;
+  accent: string;
+}

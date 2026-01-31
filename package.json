@@ -11,6 +11,7 @@
   "dependencies": {
     "@farcaster/frame-sdk": "^0.0.30",
     "@supabase/supabase-js": "^2.39.0",
+    "canvas-confetti": "^1.9.2", 
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -18,6 +19,7 @@
     "viem": "^2.21.55"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4", 
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
